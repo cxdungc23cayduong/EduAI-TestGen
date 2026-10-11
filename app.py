@@ -250,7 +250,8 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 2. Câu hỏi Trắc nghiệm (Nhận biết, Thông hiểu): Phải có 4 phương án A, B, C, D. Chỉ có duy nhất 1 đáp án đúng. Các phương án nhiễu phải hợp lý, không mơ hồ. Tuyệt đối KHÔNG lạm dụng phương án "Tất cả các đáp án trên".
                 3. Câu hỏi Lập trình/Thực hành (Vận dụng, Vận dụng cao): Ưu tiên sử dụng ngôn ngữ Python/C++. Phải mô tả rõ yêu cầu bài toán, dữ liệu vào (Input), dữ liệu ra (Output) và có test-case mẫu.
                 4. KHÔNG tiết lộ đáp án ngay bên cạnh câu hỏi trong phần đề thi dành cho học sinh.
-                5. PHẦN ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM: Phải được tách riêng và đặt ở cuối cùng của văn bản. Lời giải lập trình phải đúng cú pháp, tối ưu về thuật toán (thời gian, bộ nhớ).
+                5. TUYỆT ĐỐI KHÔNG ghi chú, hiển thị tên chủ đề hay tên bài học vào trong nội dung các câu hỏi của đề thi (để đề thi trông giống hệt đề kiểm tra thực tế trên giấy). Chỉ dùng thông tin bài học làm căn cứ sinh câu hỏi.
+                6. PHẦN ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM: Phải được tách riêng và đặt ở cuối cùng của văn bản. Có thể lập bảng đáp án trắc nghiệm. Trong phần đáp án này có thể ghi chú ngắn gọn câu hỏi thuộc bài nào nếu cần thiết.
 
                 Trình bày kết quả chuyên nghiệp bằng định dạng Markdown.
                 """
