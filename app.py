@@ -2,8 +2,10 @@ import io
 import google.generativeai as genai
 import streamlit as st
 from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# 1. Cấu hình giao diện trang web
+# --- 1. CẤU HÌNH GIAO DIỆN TRANG WEB ---
 st.set_page_config(
     page_title="EduAI-TestGen - Hệ Thống Sinh Đề Tổng Hợp",
     page_icon="🤖",
@@ -17,7 +19,7 @@ st.markdown(
 )
 st.divider()
 
-# --- DỮ LIỆU CHUẨN SÁCH GIÁO KHOA "KẾT NỐI TRI THỨC" TIN HỌC THPT ---
+# --- 2. DỮ LIỆU CHUẨN SÁCH GIÁO KHOA "KẾT NỐI TRI THỨC" TIN HỌC THPT ---
 CURRICULUM_DATA = {
     "Lớp 10": {
         "Chủ đề 1: Máy tính và xã hội tri thức": [
@@ -160,7 +162,7 @@ CURRICULUM_DATA = {
     }
 }
 
-# --- 2. THANH BÊN (SIDEBAR): CẤU HÌNH API & MA TRẬN ĐA BÀI HỌC ---
+# --- 3. THANH BÊN (SIDEBAR): CẤU HÌNH API & MA TRẬN ĐA BÀI HỌC ---
 st.sidebar.header("⚙️ Cấu hình hệ thống & AI")
 
 api_key_input = st.sidebar.text_input(
@@ -172,22 +174,22 @@ api_key_input = st.sidebar.text_input(
 st.sidebar.divider()
 st.sidebar.header("📚 Xây dựng ma trận đề kiểm tra")
 
-# 1. Chọn khối lớp
+# Chọn khối lớp
 selected_grade = st.sidebar.selectbox("Chọn khối lớp", list(CURRICULUM_DATA.keys()))
 
-# 2. Tạo danh sách tất cả các bài học của khối lớp đó để chọn nhiều bài
+# Tạo danh sách tất cả các bài học của khối lớp đó để chọn nhiều bài
 all_lessons_in_grade = []
 for topic, lessons in CURRICULUM_DATA[selected_grade].items():
     for lesson in lessons:
         all_lessons_in_grade.append(f"{topic} | {lesson}")
 
 selected_lessons = st.sidebar.multiselect(
-    "Chọn các bài học đưa vào đề thi (Có thể chọn nhiều bài)",
+    "Chọn các bài học đưa vào đề thi (Có thể chọn nhiều bài)", 
     all_lessons_in_grade,
     help="Ví dụ: Chọn 5 bài học để tạo đề kiểm tra Giữa kì"
 )
 
-# 3. Lặp qua các bài học đã chọn để thiết lập ma trận chi tiết cho từng bài
+# Lặp qua các bài học đã chọn để thiết lập ma trận chi tiết cho từng bài
 matrix_config = []
 total_questions = 0
 
@@ -195,7 +197,7 @@ if selected_lessons:
     st.sidebar.markdown("### 📊 Chi tiết ma trận từng bài học")
     for item in selected_lessons:
         topic_name, lesson_name = item.split(" | ")
-
+        
         with st.sidebar.expander(f"Cấu hình: {lesson_name}", expanded=False):
             col1, col2 = st.columns(2)
             with col1:
@@ -204,7 +206,7 @@ if selected_lessons:
             with col2:
                 th = st.number_input("Thông hiểu", min_value=0, max_value=20, value=1, key=f"th_{item}")
                 vdc = st.number_input("Vận dụng cao", min_value=0, max_value=20, value=0, key=f"vdc_{item}")
-
+            
             matrix_config.append({
                 "topic": topic_name,
                 "lesson": lesson_name,
@@ -214,7 +216,7 @@ if selected_lessons:
 
     st.sidebar.success(f"**Tổng số câu hỏi trong đề: {total_questions} câu**")
 
-# --- 3. KHU VỰC CHÍNH: GỌI GEMINI AI SINH ĐỀ CHUẨN MA TRẬN TỔNG HỢP ---
+# --- 4. KHU VỰC CHÍNH: GỌI GEMINI AI SINH ĐỀ ---
 st.subheader("📋 Nội dung đề kiểm tra tổng hợp")
 
 if "generated_test" not in st.session_state:
@@ -227,7 +229,7 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
         st.warning("⚠️ Thầy/cô vui lòng chọn ít nhất một bài học để đưa vào đề thi!")
     else:
         try:
-            with st.spinner("🤖 Gemini AI đang phân tích ma trận đa bài học và biên soạn đề..."):
+            with st.spinner("🤖 Gemini AI đang phân tích ma trận và biên soạn đề..."):
                 genai.configure(api_key=api_key_input)
                 model = genai.GenerativeModel("gemini-3.8-flash")
 
@@ -239,7 +241,7 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 prompt = f"""
                 Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT xuất sắc theo Chương trình GDPT 2018 (sách Kết nối tri thức).
                 Hãy biên soạn một đề kiểm tra định kỳ môn Tin học cho {selected_grade}.
-
+                
                 YÊU CẦU MA TRẬN BẮT BUỘC (TUÂN THỦ TUYỆT ĐỐI SỐ LƯỢNG NÀY):
                 {matrix_str}
 
@@ -253,7 +255,7 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 Trình bày kết quả chuyên nghiệp bằng định dạng Markdown.
                 """
 
-               # Gọi API với chế độ STREAM (Trực tiếp)
+                # Gọi API với chế độ STREAM (Trực tiếp)
                 response = model.generate_content(prompt, stream=True)
                 
                 # Sử dụng bộ xử lý luồng gốc của Streamlit siêu mượt
@@ -265,34 +267,83 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 # In trực tiếp ra màn hình với tốc độ tối đa
                 full_text = st.write_stream(stream_parser)
                 st.session_state.generated_test = full_text
-
+                
                 st.success("🎉 Gemini AI đã sinh thành công đề kiểm tra tổng hợp!")
 
         except Exception as e:
             st.error(f"❌ Lỗi kết nối với Gemini AI: {e}")
 
-# Hiển thị nút tải Word (Chỉ tải sau khi đã sinh đề xong)
+# --- 5. TẠO FILE WORD CHUẨN FORM GIÁO DỤC ---
 if st.session_state.generated_test:
     st.markdown("---")
-
+    
     doc = Document()
-    doc.add_heading(f"ĐỀ KIỂM TRA MÔN TIN HỌC {selected_grade.upper()}", level=1)
+    
+    # Thiết lập Font chữ mặc định toàn văn bản là Times New Roman, cỡ 12
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(12)
+
+    # 1. Phần Tiêu đề Trường / Đề thi (Căn giữa)
+    header_p = doc.add_paragraph()
+    header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    run_truong = header_p.add_run("TRƯỜNG THPT ................................\n")
+    run_truong.bold = True
+    run_truong.font.size = Pt(13)
+    
+    run_de = header_p.add_run(f"ĐỀ KIỂM TRA ĐỊNH KỲ - MÔN TIN HỌC {selected_grade.upper()}\n")
+    run_de.bold = True
+    run_de.font.size = Pt(14)
+    
+    run_tg = header_p.add_run("Thời gian làm bài: 45 phút (Không kể thời gian phát đề)\n")
+    run_tg.italic = True
+    run_tg.font.size = Pt(12)
+
+    # 2. Phần Thông tin Thí sinh
+    doc.add_paragraph("Họ và tên thí sinh: ................................................................. Lớp: .....................")
+    doc.add_paragraph("Số báo danh: ..........................................................................................................")
+    
+    # Đường kẻ ngang phân cách
+    doc.add_paragraph("_" * 60).alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph() # Dòng trống tạo khoảng cách
+    
+    # 3. Xử lý nội dung Markdown từ AI sang Word
     for line in st.session_state.generated_test.split("\n"):
+        line = line.strip()
+        if not line:
+            doc.add_paragraph()
+            continue
+            
         if line.startswith("# "):
-            doc.add_heading(line.replace("# ", ""), level=1)
+            p = doc.add_heading(level=1)
+            run = p.add_run(line.replace("# ", ""))
+            run.font.name = 'Times New Roman'
         elif line.startswith("## "):
-            doc.add_heading(line.replace("## ", ""), level=2)
+            p = doc.add_heading(level=2)
+            run = p.add_run(line.replace("## ", ""))
+            run.font.name = 'Times New Roman'
         elif line.startswith("### "):
-            doc.add_heading(line.replace("### ", ""), level=3)
+            p = doc.add_heading(level=3)
+            run = p.add_run(line.replace("### ", ""))
+            run.font.name = 'Times New Roman'
         else:
-            doc.add_paragraph(line)
+            p = doc.add_paragraph()
+            # Bóc tách để giữ được chữ in đậm
+            parts = line.split("**")
+            for i, part in enumerate(parts):
+                run = p.add_run(part)
+                run.font.name = 'Times New Roman'
+                if i % 2 != 0: 
+                    run.bold = True
 
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
 
     st.download_button(
-        label="📥 Tải đề kiểm tra định dạng Word (.docx)",
+        label="📥 Tải đề kiểm tra định dạng Word (Bản in chuẩn)",
         data=buffer,
         file_name=f"De_Kiem_Tra_{selected_grade.replace(' ', '_')}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
