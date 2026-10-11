@@ -163,65 +163,129 @@ CURRICULUM_DATA = {
 }
 
 # --- 3. THANH BÊN (SIDEBAR): CẤU HÌNH API & MA TRẬN ĐA BÀI HỌC ---
-st.sidebar.header("⚙️ Cấu hình hệ thống & AI")
-
-api_key_input = st.sidebar.text_input(
-    "Nhập Google Gemini API Key của thầy/cô",
-    type="password",
-    help="Dán mã API Key lấy từ Google AI Studio vào đây",
-)
-
+# --- CẤU HÌNH MA TRẬN KẾT HỢP TRỢ LÝ AI TỰ SINH ---
 st.sidebar.divider()
-st.sidebar.header("📚 Xây dựng ma trận đề kiểm tra")
+st.sidebar.header("📊 Bảng Ma Trận Đề Kiểm Tra")
 
-# Chọn khối lớp
-selected_grade = st.sidebar.selectbox("Chọn khối lớp", list(CURRICULUM_DATA.keys()))
+# Thêm nút yêu cầu AI tự sinh ma trận
+ai_auto_matrix_btn = st.sidebar.button("✨ AI tự động thiết lập Ma trận chuẩn")
 
-# Tạo danh sách tất cả các bài học của khối lớp đó để chọn nhiều bài
-all_lessons_in_grade = []
-for topic, lessons in CURRICULUM_DATA[selected_grade].items():
-    for lesson in lessons:
-        all_lessons_in_grade.append(f"{topic} | {lesson}")
+# Khởi tạo state lưu trữ phân phối ma trận nếu chưa có
+if "matrix_df_state" not in st.session_state:
+    st.session_state.matrix_df_state = None
 
-selected_lessons = st.sidebar.multiselect(
-    "Chọn các bài học đưa vào đề thi", 
-    all_lessons_in_grade,
-    help="Có thể chọn 1 bài hoặc nhiều bài để tạo đề tổng hợp."
-)
+import pandas as pd
 
-# Cấu hình trộn mã đề
-st.sidebar.divider()
-st.sidebar.header("🔀 Cấu hình Trộn đề")
-num_versions = st.sidebar.number_input("Số lượng mã đề cần tạo", min_value=1, max_value=10, value=1)
-st.sidebar.caption("Hệ thống sẽ tự động hoán vị câu hỏi và phương án A, B, C, D để tạo ra nhiều mã đề khác nhau.")
+# Nếu người dùng bấm nút AI tự sinh ma trận
+if ai_auto_matrix_btn:
+    if not api_key_input:
+        st.sidebar.error("⚠️ Vui lòng nhập API Key ở trên trước!")
+    elif not selected_lessons:
+        st.sidebar.warning("⚠️ Vui lòng chọn ít nhất một bài học ở trên!")
+    else:
+        with st.spinner("🤖 AI đang phân tích ma trận phù hợp với các bài đã chọn..."):
+            genai.configure(api_key=api_key_input)
+            model = genai.GenerativeModel("gemini-3.8-flash")
+            
+            prompt_matrix_gen = f"""
+            Bạn là một chuyên gia khảo thí Tin học THPT. Dựa trên danh sách các bài học sau:
+            {selected_lessons}
+            Hãy thiết lập một ma trận đề kiểm tra tổng hợp gồm tổng cộng khoảng 20 câu hỏi (hoặc số lượng phù hợp).
+            Phân phối các mức độ: Nhận biết (NB), Thông hiểu (TH), Vận dụng (VD), Vận dụng cao (VDC) cho từng bài học sao cho cân đối, bám sát yêu cầu cần đạt của chương trình GDPT 2018.
+            Yêu cầu trả kết quả TRỰC TIẾP dưới dạng danh sách các dòng, mỗi dòng theo đúng định dạng phân tách bằng dấu phẩy:
+            Tên bài học | Số câu Nhận biết | Số câu Thông hiểu | Số câu Vận dụng | Số câu Vận dụng cao
+            Chỉ trả về danh sách dữ liệu đó, không kèm giải thích rườm rà.
+            """
+            
+            response = model.generate_content(prompt_matrix_gen)
+            # Xử lý kết quả trả về từ AI để đưa vào bảng
+            lines = response.text.strip().split("\n")
+            ai_data = []
+            for item in selected_lessons:
+                topic_name, lesson_name = item.split(" | ")
+                # Mặc định ban đầu
+                nb, th, vd, vdc = 1, 1, 0, 0
+                for line in lines:
+                    if lesson_name in line:
+                        parts = [p.strip() for p in line.split("|")]
+                        if len(parts) >= 5:
+                            try:
+                                nb = int(parts[1])
+                                th = int(parts[2])
+                                vd = int(parts[3])
+                                vdc = int(parts[4])
+                            except:
+                                pass
+                ai_data.append({
+                    "Chọn": True,
+                    "Chủ đề": topic_name,
+                    "Bài học": lesson_name,
+                    "Nhận biết": nb,
+                    "Thông hiểu": th,
+                    "Vận dụng": vd,
+                    "Vận dụng cao": vdc
+                })
+            st.session_state.matrix_df_state = pd.DataFrame(ai_data)
+            st.sidebar.success("✨ Đã tạo ma trận thành công! Thầy/cô có thể sửa lại trực tiếp trên bảng bên dưới.")
 
-# Lặp qua các bài học đã chọn để thiết lập ma trận chi tiết cho từng bài
+# Nếu chưa có state từ AI, tạo bảng mặc định cơ bản
+if st.session_state.matrix_df_state is None and selected_lessons:
+    default_data = []
+    for item in selected_lessons:
+        topic_name, lesson_name = item.split(" | ")
+        default_data.append({
+            "Chọn": True,
+            "Chủ đề": topic_name,
+            "Bài học": lesson_name,
+            "Nhận biết": 1,
+            "Thông hiểu": 1,
+            "Vận dụng": 0,
+            "Vận dụng cao": 0
+        })
+    st.session_state.matrix_df_state = pd.DataFrame(default_data)
+
 matrix_config = []
 total_questions = 0
 
-if selected_lessons:
-    st.sidebar.divider()
-    st.sidebar.markdown("### 📊 Chi tiết ma trận từng bài học")
-    for item in selected_lessons:
-        topic_name, lesson_name = item.split(" | ")
-        
-        with st.sidebar.expander(f"Cấu hình: {lesson_name}", expanded=False):
-            col1, col2 = st.columns(2)
-            with col1:
-                nb = st.number_input("Nhận biết", min_value=0, max_value=20, value=1, key=f"nb_{item}")
-                vd = st.number_input("Vận dụng", min_value=0, max_value=20, value=0, key=f"vd_{item}")
-            with col2:
-                th = st.number_input("Thông hiểu", min_value=0, max_value=20, value=1, key=f"th_{item}")
-                vdc = st.number_input("Vận dụng cao", min_value=0, max_value=20, value=0, key=f"vdc_{item}")
-            
-            matrix_config.append({
-                "topic": topic_name,
-                "lesson": lesson_name,
-                "nb": nb, "th": th, "vd": vd, "vdc": vdc
-            })
-            total_questions += (nb + th + vd + vdc)
+if selected_lessons and st.session_state.matrix_df_state is not None:
+    st.sidebar.caption("💡 Click trực tiếp vào các ô số bên dưới để chỉnh sửa số lượng câu hỏi như Excel:")
+    
+    # Hiển thị bảng tính tương tác trực quan (Data Editor)
+    edited_df = st.sidebar.data_editor(
+        st.session_state.matrix_df_state,
+        hide_index=True,
+        column_config={
+            "Chọn": st.column_config.CheckboxColumn("Chọn", width="small"),
+            "Chủ đề": st.column_config.TextColumn("Chủ đề", disabled=True),
+            "Bài học": st.column_config.TextColumn("Bài học", disabled=True),
+            "Nhận biết": st.column_config.NumberColumn("NB", min_value=0, max_value=10, step=1, width="small"),
+            "Thông hiểu": st.column_config.NumberColumn("TH", min_value=0, max_value=10, step=1, width="small"),
+            "Vận dụng": st.column_config.NumberColumn("VD", min_value=0, max_value=10, step=1, width="small"),
+            "Vận dụng cao": st.column_config.NumberColumn("VDC", min_value=0, max_value=10, step=1, width="small"),
+        },
+        key="matrix_editor_ai"
+    )
 
-    st.sidebar.success(f"**Tổng số câu hỏi mỗi đề: {total_questions} câu**")
+    # Cập nhật lại state
+    st.session_state.matrix_df_state = edited_df
+
+    # Lọc ra các dòng được chọn và tính tổng số câu
+    for index, row in edited_df.iterrows():
+        if row["Chọn"]:
+            nb = int(row["Nhận biết"])
+            th = int(row["Thông hiểu"])
+            vd = int(row["Vận dụng"])
+            vdc = int(row["Vận dụng cao"])
+            
+            if (nb + th + vd + vdc) > 0:
+                matrix_config.append({
+                    "topic": row["Chủ đề"],
+                    "lesson": row["Bài học"],
+                    "nb": nb, "th": th, "vd": vd, "vdc": vdc
+                })
+                total_questions += (nb + th + vd + vdc)
+
+    st.sidebar.success(f"**📊 Tổng số câu hỏi trong đề: {total_questions} câu**")
 
 # --- 4. KHU VỰC CHÍNH: GỌI GEMINI AI SINH ĐỀ ---
 st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
