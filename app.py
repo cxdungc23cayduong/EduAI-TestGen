@@ -253,20 +253,17 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 Trình bày kết quả chuyên nghiệp bằng định dạng Markdown.
                 """
 
-                # Gọi API với chế độ STREAM (Trực tiếp)
+               # Gọi API với chế độ STREAM (Trực tiếp)
                 response = model.generate_content(prompt, stream=True)
-
-                # Tạo một vùng trống để hiển thị văn bản động
-                response_placeholder = st.empty()
-                full_text = ""
-
-                # Cập nhật giao diện từng từ một theo thời gian thực
-                for chunk in response:
-                    full_text += chunk.text
-                    response_placeholder.markdown(full_text + " ▌") # Thêm con trỏ nhấp nháy cho sinh động
-
-                # Hoàn thành, in văn bản chuẩn và bỏ con trỏ
-                response_placeholder.markdown(full_text)
+                
+                # Sử dụng bộ xử lý luồng gốc của Streamlit siêu mượt
+                def stream_parser():
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                            
+                # In trực tiếp ra màn hình với tốc độ tối đa
+                full_text = st.write_stream(stream_parser)
                 st.session_state.generated_test = full_text
 
                 st.success("🎉 Gemini AI đã sinh thành công đề kiểm tra tổng hợp!")
