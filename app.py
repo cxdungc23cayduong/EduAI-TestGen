@@ -12,10 +12,10 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🤖 EduAI-TestGen: Hệ Thống Sinh Đề Kiểm Tra Giữa Kì / Cuối Kì")
+st.title("🤖 EduAI-TestGen: Hệ Thống Sinh Đề Kiểm Tra & Trộn Đề")
 st.markdown(
-    "Ứng dụng hỗ trợ giáo viên Tin học xây dựng ma trận và tạo đề kiểm tra tổng hợp "
-    "nhiều bài học bám sát Chương trình GDPT 2018 (Sách Kết nối tri thức)."
+    "Ứng dụng hỗ trợ giáo viên Tin học xây dựng ma trận, tạo đề kiểm tra tổng hợp "
+    "và tự động hoán vị mã đề bám sát Chương trình GDPT 2018 (Sách Kết nối tri thức)."
 )
 st.divider()
 
@@ -184,16 +184,23 @@ for topic, lessons in CURRICULUM_DATA[selected_grade].items():
         all_lessons_in_grade.append(f"{topic} | {lesson}")
 
 selected_lessons = st.sidebar.multiselect(
-    "Chọn các bài học đưa vào đề thi (Có thể chọn nhiều bài)", 
+    "Chọn các bài học đưa vào đề thi", 
     all_lessons_in_grade,
-    help="Ví dụ: Chọn 5 bài học để tạo đề kiểm tra Giữa kì"
+    help="Có thể chọn 1 bài hoặc nhiều bài để tạo đề tổng hợp."
 )
+
+# Cấu hình trộn mã đề
+st.sidebar.divider()
+st.sidebar.header("🔀 Cấu hình Trộn đề")
+num_versions = st.sidebar.number_input("Số lượng mã đề cần tạo", min_value=1, max_value=10, value=1)
+st.sidebar.caption("Hệ thống sẽ tự động hoán vị câu hỏi và phương án A, B, C, D để tạo ra nhiều mã đề khác nhau.")
 
 # Lặp qua các bài học đã chọn để thiết lập ma trận chi tiết cho từng bài
 matrix_config = []
 total_questions = 0
 
 if selected_lessons:
+    st.sidebar.divider()
     st.sidebar.markdown("### 📊 Chi tiết ma trận từng bài học")
     for item in selected_lessons:
         topic_name, lesson_name = item.split(" | ")
@@ -214,22 +221,22 @@ if selected_lessons:
             })
             total_questions += (nb + th + vd + vdc)
 
-    st.sidebar.success(f"**Tổng số câu hỏi trong đề: {total_questions} câu**")
+    st.sidebar.success(f"**Tổng số câu hỏi mỗi đề: {total_questions} câu**")
 
 # --- 4. KHU VỰC CHÍNH: GỌI GEMINI AI SINH ĐỀ ---
-st.subheader("📋 Nội dung đề kiểm tra tổng hợp")
+st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
 
 if "generated_test" not in st.session_state:
     st.session_state.generated_test = ""
 
-if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type="primary"):
+if st.button("🚀 Bắt đầu sinh đề kiểm tra", type="primary"):
     if not api_key_input:
         st.error("⚠️ Thầy/cô vui lòng nhập Google Gemini API Key ở thanh bên trái!")
     elif not matrix_config:
         st.warning("⚠️ Thầy/cô vui lòng chọn ít nhất một bài học để đưa vào đề thi!")
     else:
         try:
-            with st.spinner("🤖 Gemini AI đang phân tích ma trận và biên soạn đề..."):
+            with st.spinner("🤖 Gemini AI đang phân tích ma trận và thực hiện hoán vị trộn đề..."):
                 genai.configure(api_key=api_key_input)
                 model = genai.GenerativeModel("gemini-3.8-flash")
 
@@ -245,13 +252,13 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 YÊU CẦU MA TRẬN BẮT BUỘC (TUÂN THỦ TUYỆT ĐỐI SỐ LƯỢNG NÀY):
                 {matrix_str}
 
-                CHỈ DẪN BIÊN SOẠN:
-                1. Nội dung câu hỏi phải bám sát chính xác ngữ cảnh và yêu cầu cần đạt của từng bài học tương ứng trong sách Kết nối tri thức.
-                2. Câu hỏi Trắc nghiệm (Nhận biết, Thông hiểu): Phải có 4 phương án A, B, C, D. Chỉ có duy nhất 1 đáp án đúng. Các phương án nhiễu phải hợp lý, không mơ hồ. Tuyệt đối KHÔNG lạm dụng phương án "Tất cả các đáp án trên".
-                3. Câu hỏi Lập trình/Thực hành (Vận dụng, Vận dụng cao): Ưu tiên sử dụng ngôn ngữ Python/C++. Phải mô tả rõ yêu cầu bài toán, dữ liệu vào (Input), dữ liệu ra (Output) và có test-case mẫu.
-                4. KHÔNG tiết lộ đáp án ngay bên cạnh câu hỏi trong phần đề thi dành cho học sinh.
-                5. TUYỆT ĐỐI KHÔNG ghi chú, hiển thị tên chủ đề hay tên bài học vào trong nội dung các câu hỏi của đề thi (để đề thi trông giống hệt đề kiểm tra thực tế trên giấy). Chỉ dùng thông tin bài học làm căn cứ sinh câu hỏi.
-                6. PHẦN ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM: Phải được tách riêng và đặt ở cuối cùng của văn bản. Có thể lập bảng đáp án trắc nghiệm. Trong phần đáp án này có thể ghi chú ngắn gọn câu hỏi thuộc bài nào nếu cần thiết.
+                CHỈ DẪN BIÊN SOẠN VÀ TRỘN ĐỀ:
+                1. Số lượng mã đề yêu cầu: {num_versions} mã đề. Nếu > 1 mã đề: Hãy lấy Đề gốc (Mã 101) sau đó tự động HOÁN VỊ (đảo vị trí các câu hỏi và đảo các phương án A,B,C,D) để tạo ra các mã đề tiếp theo (Ví dụ: Mã 102, 103...). Cung cấp đầy đủ nội dung toàn văn của từng mã đề.
+                2. Câu hỏi Trắc nghiệm: Phải có 4 phương án A, B, C, D. Chỉ có duy nhất 1 đáp án đúng. Tuyệt đối KHÔNG lạm dụng phương án "Tất cả các đáp án trên".
+                3. BẮT BUỘC: Phần nội dung đề thi của mỗi mã đề phải được bắt đầu bằng tiêu đề chuẩn xác: "### MÃ ĐỀ <số>" (Ví dụ: ### MÃ ĐỀ 101).
+                4. TUYỆT ĐỐI KHÔNG ghi chú, hiển thị tên chủ đề hay tên bài học vào trong phần câu hỏi của đề thi dành cho học sinh.
+                5. BẮT BUỘC: Phần Đáp án phải được đặt ở vị trí cuối cùng của toàn bộ văn bản và bắt đầu bằng tiêu đề chuẩn xác: "### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM".
+                6. Trong phần Đáp án, hãy lập Bảng đáp án trắc nghiệm tổng hợp so sánh cho tất cả các mã đề.
 
                 Trình bày kết quả chuyên nghiệp bằng định dạng Markdown.
                 """
@@ -269,12 +276,12 @@ if st.button("🚀 Bắt đầu sinh đề kiểm tra bám sát Ma trận", type
                 full_text = st.write_stream(stream_parser)
                 st.session_state.generated_test = full_text
                 
-                st.success("🎉 Gemini AI đã sinh thành công đề kiểm tra tổng hợp!")
+                st.success(f"🎉 Gemini AI đã sinh và trộn thành công {num_versions} mã đề kiểm tra!")
 
         except Exception as e:
             st.error(f"❌ Lỗi kết nối với Gemini AI: {e}")
 
-# --- 5. TẠO FILE WORD CHUẨN FORM GIÁO DỤC ---
+# --- 5. TẠO FILE WORD CHUẨN FORM GIÁO DỤC (TỰ ĐỘNG NGẮT TRANG) ---
 if st.session_state.generated_test:
     st.markdown("---")
     
@@ -286,37 +293,64 @@ if st.session_state.generated_test:
     font.name = 'Times New Roman'
     font.size = Pt(12)
 
-    # 1. Phần Tiêu đề Trường / Đề thi (Căn giữa)
-    header_p = doc.add_paragraph()
-    header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    run_truong = header_p.add_run("TRƯỜNG THPT ................................\n")
-    run_truong.bold = True
-    run_truong.font.size = Pt(13)
-    
-    run_de = header_p.add_run(f"ĐỀ KIỂM TRA ĐỊNH KỲ - MÔN TIN HỌC {selected_grade.upper()}\n")
-    run_de.bold = True
-    run_de.font.size = Pt(14)
-    
-    run_tg = header_p.add_run("Thời gian làm bài: 45 phút (Không kể thời gian phát đề)\n")
-    run_tg.italic = True
-    run_tg.font.size = Pt(12)
+    # Hàm tạo khung thông tin hành chính của Trường học
+    def add_exam_header(docx_obj, ma_de=""):
+        header_p = docx_obj.add_paragraph()
+        header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        run_truong = header_p.add_run("TRƯỜNG THPT ................................\n")
+        run_truong.bold = True
+        run_truong.font.size = Pt(13)
+        
+        run_de = header_p.add_run(f"ĐỀ KIỂM TRA ĐỊNH KỲ - MÔN TIN HỌC {selected_grade.upper()}\n")
+        run_de.bold = True
+        run_de.font.size = Pt(14)
+        
+        if ma_de:
+            run_ma = header_p.add_run(f"{ma_de}\n")
+            run_ma.bold = True
+            run_ma.font.size = Pt(13)
+        
+        run_tg = header_p.add_run("Thời gian làm bài: 45 phút (Không kể thời gian phát đề)\n")
+        run_tg.italic = True
+        run_tg.font.size = Pt(12)
 
-    # 2. Phần Thông tin Thí sinh
-    doc.add_paragraph("Họ và tên thí sinh: ................................................................. Lớp: .....................")
-    doc.add_paragraph("Số báo danh: ..........................................................................................................")
-    
-    # Đường kẻ ngang phân cách
-    doc.add_paragraph("_" * 60).alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph() # Dòng trống tạo khoảng cách
-    
-    # 3. Xử lý nội dung Markdown từ AI sang Word
+        docx_obj.add_paragraph("Họ và tên thí sinh: ................................................................. Lớp: .....................")
+        docx_obj.add_paragraph("Số báo danh: ..........................................................................................................")
+        docx_obj.add_paragraph("_" * 60).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        docx_obj.add_paragraph()
+
+    # Xử lý nội dung Markdown từ AI sang Word
+    first_page = True
     for line in st.session_state.generated_test.split("\n"):
         line = line.strip()
         if not line:
             doc.add_paragraph()
             continue
             
+        # Tự động nhận diện tiêu đề Mã Đề để ngắt trang và chèn khung Trường học
+        if "MÃ ĐỀ" in line.upper() and line.startswith("#"):
+            if not first_page:
+                doc.add_page_break()
+            first_page = False
+            
+            ma_de_text = line.replace("#", "").strip()
+            add_exam_header(doc, ma_de_text)
+            continue
+            
+        # Tự động nhận diện tiêu đề Đáp án để ngắt sang trang cuối cùng
+        if "ĐÁP ÁN" in line.upper() and line.startswith("#"):
+            if not first_page:
+                doc.add_page_break()
+            first_page = False
+            
+            p = doc.add_heading(level=1)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p.add_run(line.replace("#", "").strip())
+            run.font.name = 'Times New Roman'
+            continue
+            
+        # Xử lý các định dạng Heading và in đậm thông thường
         if line.startswith("# "):
             p = doc.add_heading(level=1)
             run = p.add_run(line.replace("# ", ""))
@@ -331,7 +365,6 @@ if st.session_state.generated_test:
             run.font.name = 'Times New Roman'
         else:
             p = doc.add_paragraph()
-            # Bóc tách để giữ được chữ in đậm
             parts = line.split("**")
             for i, part in enumerate(parts):
                 run = p.add_run(part)
@@ -344,8 +377,8 @@ if st.session_state.generated_test:
     buffer.seek(0)
 
     st.download_button(
-        label="📥 Tải đề kiểm tra định dạng Word (Bản in chuẩn)",
+        label="📥 Tải BỘ ĐỀ (Word) bản in chuẩn (Có tự động ngắt trang)",
         data=buffer,
-        file_name=f"De_Kiem_Tra_{selected_grade.replace(' ', '_')}.docx",
+        file_name=f"Bo_De_Kiem_Tra_Tron_Ma_{selected_grade.replace(' ', '_')}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
