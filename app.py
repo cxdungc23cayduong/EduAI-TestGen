@@ -252,7 +252,7 @@ if ai_auto_matrix_btn:
     else:
         with st.spinner("🤖 AI đang phân tích và tính toán ma trận phù hợp..."):
             genai.configure(api_key=api_key_input)
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel("gemini-1.5-flash")
             
             # Sử dụng ngoặc đơn () nối chuỗi an toàn tuyệt đối
             prompt_matrix_gen = (
