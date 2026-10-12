@@ -12,6 +12,7 @@ st.set_page_config(
     layout="wide",
 )
 
+st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG")
 st.title("🤖 EduAI-TestGen: Hệ Thống Sinh Đề Kiểm Tra & Trộn Đề")
 st.markdown(
     "Ứng dụng hỗ trợ giáo viên Tin học xây dựng ma trận, tạo đề kiểm tra tổng hợp "
@@ -163,6 +164,7 @@ CURRICULUM_DATA = {
 }
 
 # --- 3. THANH BÊN (SIDEBAR): CẤU HÌNH API & MA TRẬN ĐA BÀI HỌC ---
+st.sidebar.markdown("### 👨‍🏫 GIÁO VIÊN: CAO XUÂN ĐÚNG")
 st.sidebar.header("⚙️ Cấu hình hệ thống & AI")
 
 api_key_input = st.sidebar.text_input(
