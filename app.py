@@ -59,27 +59,27 @@ if "question_bank_pool" not in st.session_state:
 
 # --- 4. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
-st.title("🤖 EduAI-TestGen: Hệ Thống Khảo Thí & Ôn Tập Thông Minh")
+st.title("EduAI-TestGen: Hệ Thống Khảo Thí & Ôn Tập Thông Minh")
 
 app_mode = st.selectbox(
-    "🎯 CHỌN CHỨC NĂNG HỆ THỐNG:",
+    "CHỌN CHỨC NĂNG HỆ THỐNG:",
     [
-        "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)",
-        "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)",
-        "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)"
+        "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)",
+        "2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)",
+        "3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)"
     ]
 )
 st.divider()
 
 # =========================================================================
-# PHÂN VÙNG 1: KHẢO THÍ & RA ĐỀ (TỰ ĐỘNG LƯU VÀO KHO ĐỀ)
+# PHÂN VÙNG 1: KHẢO THÍ & RA ĐỀ
 # =========================================================================
-if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
-    st.sidebar.markdown("### 👨‍🏫 QUẢN LÝ KHẢO THÍ")
+if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
+    st.sidebar.markdown("### QUẢN LÝ KHẢO THÍ")
     api_key_input = st.sidebar.text_input("Nhập Google Gemini API Key", type="password")
 
     st.sidebar.divider()
-    st.sidebar.header("📚 Xây dựng ma trận đề")
+    st.sidebar.header("Xây dựng ma trận đề")
     selected_grade = st.sidebar.selectbox("Chọn khối lớp", list(CURRICULUM_DATA.keys()))
 
     all_lessons_in_grade = []
@@ -91,12 +91,12 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
     num_versions = st.sidebar.number_input("Số lượng mã đề cần tạo", min_value=1, max_value=10, value=1)
 
     st.sidebar.divider()
-    st.sidebar.header("📊 Bảng Ma Trận Đề Kiểm Tra")
+    st.sidebar.header("Bảng Ma Trận Đề Kiểm Tra")
     col_ai_btn, col_reset = st.sidebar.columns([3, 1])
     with col_ai_btn:
-        ai_auto_matrix_btn = st.button("✨ AI gợi ý ma trận")
+        ai_auto_matrix_btn = st.button("AI gợi ý ma trận")
     with col_reset:
-        if st.button("🔄 Đặt lại"):
+        if st.button("Đặt lại"):
             st.session_state.matrix_df_state = None
             st.rerun()
 
@@ -105,7 +105,7 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
 
     if ai_auto_matrix_btn:
         if not selected_lessons:
-            st.sidebar.warning("⚠️ Vui lòng chọn ít nhất một bài học!")
+            st.sidebar.warning("Vui lòng chọn ít nhất một bài học!")
         else:
             num_lessons = len(selected_lessons)
             ai_data = []
@@ -120,7 +120,7 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                     "Nhận biết": nb, "Thông hiểu": th, "Vận dụng": vd, "Vận dụng cao": vdc
                 })
             st.session_state.matrix_df_state = pd.DataFrame(ai_data)
-            st.sidebar.success("✨ Đã thiết lập ma trận chuẩn tức thì!")
+            st.sidebar.success("Đã thiết lập ma trận chuẩn tức thì!")
 
     @st.cache_data
     def get_default_matrix(lessons):
@@ -170,18 +170,18 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                         "vd": row["Vận dụng"], "vdc": row["Vận dụng cao"]
                     })
 
-        st.sidebar.success(f"**📊 Tổng số câu hỏi: {total_questions} câu**")
+        st.sidebar.success(f"Tổng số câu hỏi: {total_questions} câu")
 
-    st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
+    st.subheader(f"Nội dung đề kiểm tra ({num_versions} Mã đề)")
 
-    if st.button("🚀 Bắt đầu sinh đề kiểm tra", type="primary"):
+    if st.button("Bắt đầu sinh đề kiểm tra", type="primary"):
         if not api_key_input:
-            st.error("⚠️ Vui lòng nhập Google Gemini API Key ở thanh bên trái!")
+            st.error("Vui lòng nhập Google Gemini API Key ở thanh bên trái!")
         elif not matrix_config:
-            st.warning("⚠️ Vui lòng chọn ít nhất một bài học!")
+            st.warning("Vui lòng chọn ít nhất một bài học!")
         else:
             try:
-                with st.spinner("🤖 Gemini AI đang phân tích ma trận, sinh đề và tự động cập nhật vào Ngân hàng ôn tập..."):
+                with st.spinner("Gemini AI đang phân tích ma trận, sinh đề và cập nhật vào Ngân hàng ôn tập..."):
                     genai.configure(api_key=api_key_input)
                     model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -191,7 +191,7 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                         matrix_str += f"  + Nhận biết: {config['nb']} câu | Thông hiểu: {config['th']} câu | Vận dụng: {config['vd']} câu | Vận dụng cao: {config['vdc']} câu.\n"
 
                     prompt = (
-                        "Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT xuất sắc theo Chương trình GDPT 2018 (sách Kết nối tri thức).\n"
+                        "Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT theo Chương trình GDPT 2018 (sách Kết nối tri thức).\n"
                         f"Hãy biên soạn một đề kiểm tra định kỳ môn Tin học cho {selected_grade}.\n\n"
                         "YÊU CẦU MA TRẬN BẮT BUỘC:\n"
                         f"{matrix_str}\n"
@@ -226,11 +226,11 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
 
                     if extracted_questions:
                         st.session_state.question_bank_pool.extend(extracted_questions)
-                        st.success(f"🎉 Đã sinh đề thành công và tự động thêm {len(extracted_questions)} câu hỏi vào Ngân hàng ôn tập cho học sinh!")
+                        st.success(f"Đã sinh đề thành công và tự động thêm {len(extracted_questions)} câu hỏi vào Ngân hàng ôn tập cho học sinh!")
                     else:
-                        st.success("🎉 Đã sinh đề thành công!")
+                        st.success("Đã sinh đề thành công!")
             except Exception as e:
-                st.error(f"❌ Lỗi kết nối Gemini AI: {e}")
+                st.error(f"Lỗi kết nối Gemini AI: {e}")
 
     if st.session_state.generated_test:
         st.markdown("---")
@@ -279,29 +279,29 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
         doc.save(buffer)
         buffer.seek(0)
         st.download_button(
-            label="📥 Tải BỘ ĐỀ (Word) bản in chuẩn", data=buffer,
+            label="Tải BỘ ĐỀ (Word) bản in chuẩn", data=buffer,
             file_name=f"Bo_De_Kiem_Tra_{selected_grade.replace(' ', '_')}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
 
 # =========================================================================
-# PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH (LẤY TỪ KHO ĐỀ ĐÃ TẠO)
+# PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH
 # =========================================================================
-elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)":
-    st.markdown("### 🎓 PHÒNG ÔN TẬP TRỰC TUYẾN TỪ KHO ĐỀ CỦA GIÁO VIÊN")
-    st.info("Hệ thống tự động tổng hợp câu hỏi từ các đề kiểm tra mà thầy cô đã biên soạn để học sinh ôn tập trực tuyến.")
+elif app_mode == "2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)":
+    st.markdown("### PHÒNG ÔN TẬP TRỰC TUYẾN TỪ KHO ĐỀ")
+    st.info("Hệ thống tự động tổng hợp câu hỏi từ các đề kiểm tra do giáo viên biên soạn để học sinh ôn tập trực tuyến.")
 
     if not st.session_state.question_bank_pool:
-        st.warning("⚠️ Kho ngân hàng câu hỏi đang trống! Thầy cô vui lòng vào **'1. Khảo Thí & Ra Đề'** và bấm sinh ít nhất một đề kiểm tra để hệ thống tự động cập nhật câu hỏi vào đây.")
+        st.warning("Kho ngân hàng câu hỏi đang trống! Thầy cô vui lòng vào mục '1. Khảo Thí & Ra Đề' và bấm sinh ít nhất một đề kiểm tra.")
     else:
-        st.success(f"📚 Kho ôn tập hiện có **{len(st.session_state.question_bank_pool)} câu hỏi** từ các đề kiểm tra đã tạo.")
+        st.success(f"Kho ôn tập hiện có {len(st.session_state.question_bank_pool)} câu hỏi.")
         
         num_to_quiz = st.slider("Chọn số lượng câu hỏi làm bài ôn tập:", min_value=3, max_value=min(15, len(st.session_state.question_bank_pool)), value=5)
 
         if "quiz_session" not in st.session_state:
             st.session_state.quiz_session = None
 
-        if st.button("🎯 Bắt đầu làm bài trắc nghiệm ôn tập", type="primary"):
+        if st.button("Bắt đầu làm bài trắc nghiệm ôn tập", type="primary"):
             st.session_state.quiz_session = random.sample(st.session_state.question_bank_pool, num_to_quiz)
             st.session_state.student_choices = {}
 
@@ -324,36 +324,36 @@ elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự 
                     st.session_state.student_choices[idx] = choice
                     st.markdown("")
 
-                submitted_quiz = st.form_submit_button("📤 Nộp bài và chấm điểm", type="primary")
+                submitted_quiz = st.form_submit_button("Nộp bài và chấm điểm", type="primary")
 
             if submitted_quiz:
                 score_cnt = 0
-                st.markdown("### 📊 KẾT QUẢ ÔN TẬP CỦA HỌC SINH")
+                st.markdown("### KẾT QUẢ ÔN TẬP")
                 for idx, q_item in enumerate(st.session_state.quiz_session, 1):
                     user_ans = st.session_state.student_choices.get(idx, "Chưa chọn")
                     correct_ans = q_item['answer']
                     if user_ans == correct_ans:
                         score_cnt += 1
-                        st.success(f"✅ Câu {idx}: Đúng! (Em chọn {user_ans})")
+                        st.success(f"Câu {idx}: Đúng! (Em chọn {user_ans})")
                     else:
-                        st.error(f"❌ Câu {idx}: Sai. (Em chọn {user_ans} | Đáp án đúng: {correct_ans})")
+                        st.error(f"Câu {idx}: Sai. (Em chọn {user_ans} | Đáp án đúng: {correct_ans})")
 
                 total_q = len(st.session_state.quiz_session)
                 final_score = (score_cnt / total_q) * 10
                 st.balloons()
-                st.metric(label="🌟 Điểm tổng kết", value=f"{final_score:.1f} điểm", delta=f"Đúng {score_cnt}/{total_q} câu")
+                st.metric(label="Điểm tổng kết", value=f"{final_score:.1f} điểm", delta=f"Đúng {score_cnt}/{total_q} câu")
 
 # =========================================================================
-# PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM (LMS GIÁO VIÊN)
+# PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM
 # =========================================================================
-elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)":
-    st.markdown("### 📂 QUẢN LÝ TIẾN ĐỘ & BẢNG ĐIỂM LỚP HỌC")
-    st.info(f"Hệ thống đang quản lý kho ngân hàng đề tự động với **{len(st.session_state.question_bank_pool)} câu hỏi**.")
+elif app_mode == "3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)":
+    st.markdown("### QUẢN LÝ TIẾN ĐỘ & BẢNG ĐIỂM")
+    st.info(f"Hệ thống đang quản lý kho ngân hàng đề tự động với {len(st.session_state.question_bank_pool)} câu hỏi.")
 
     tab1, tab2 = st.tabs(["1. Giao bài kiểm tra nhanh", "2. Bảng điểm học sinh"])
 
     with tab1:
-        st.subheader("🔗 Tạo Mã Bài Kiểm Tra Cho Lớp")
+        st.subheader("Tạo Mã Bài Kiểm Tra Cho Lớp")
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Tên bài kiểm tra:", "Kiểm tra 15 phút - Tin học THPT")
@@ -361,4 +361,23 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
         with c2:
             st.text_input("Mã bài kiểm tra:", "TIN_CAYDUONG_01")
             st.date_input("Hạn nộp:")
-        if st.button("💾 Xác nhận phát hành bài kiểm tra", type="primary
+        if st.button("Xác nhận phát hành bài kiểm tra", type="primary"):
+            st.success("Đã phát hành bài kiểm tra thành công cho học sinh!")
+
+    with tab2:
+        st.subheader("Bảng Điểm Tổng Hợp")
+        mock_data = {
+            "STT": [1, 2, 3, 4],
+            "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư"],
+            "Lớp": ["10A1", "10A1", "10A1", "10A1"],
+            "Điểm số": [9.0, 8.5, 10.0, 7.5],
+            "Trạng thái": ["Đã nộp bài", "Đã nộp bài", "Đã nộp bài", "Đã nộp bài"]
+        }
+        df_score = pd.DataFrame(mock_data)
+        st.dataframe(df_score, use_container_width=True, hide_index=True)
+        
+        score_buf = io.BytesIO()
+        with pd.ExcelWriter(score_buf, engine="openpyxl") as writer:
+            df_score.to_excel(writer, index=False, sheet_name="BangDiem")
+        score_buf.seek(0)
+        st.download_button("Tải Bảng Điểm Excel", data=score_buf, file_name="BangDiem_Lop.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
