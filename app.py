@@ -518,7 +518,37 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
         st.subheader("📤 Tải lên Tệp Ngân Hàng Câu Hỏi (Excel)")
         st.markdown("Thầy/cô tải lên tệp Excel chứa danh sách câu hỏi trắc nghiệm để học sinh ôn tập trực tuyến.")
         
-        uploaded_excel = st.file_uploader("Chọn tệp Excel ngân hàng đề (.xlsx)", type=["xlsx"])
+        # TẠO VÀ TẢI XUỐNG TỆP MẪU EXCEL CHUẨN
+        sample_data = {
+            "STT": [1, 2],
+            "Khối lớp": ["Lớp 10", "Lớp 10"],
+            "Tên bài học": ["Bài 16: Ngôn ngữ lập trình bậc cao và Python", "Bài 17: Biến và lệnh gán"],
+            "Câu hỏi": ["Đâu là tên một ngôn ngữ lập trình bậc cao?", "Trong Python, lệnh gán giá trị sử dụng ký hiệu nào?"],
+            "Đáp án A": ["Tiếng Anh", "="],
+            "Đáp án B": ["Python", "=="],
+            "Đáp án C": ["Mã máy", ":="],
+            "Đáp án D": ["Hợp ngữ", "->"],
+            "Đáp án đúng": ["B", "A"],
+            "Giải thích": ["Python là ngôn ngữ lập trình bậc cao.", "Dấu bằng (=) dùng để gán giá trị trong Python."]
+        }
+        df_sample = pd.DataFrame(sample_data)
+        
+        sample_buffer = io.BytesIO()
+        with pd.ExcelWriter(sample_buffer, engine="openpyxl") as writer:
+            df_sample.to_excel(writer, index=False, sheet_name="NganHangDe")
+        sample_buffer.seek(0)
+        
+        st.download_button(
+            label="📥 Tải xuống Tệp Excel Mẫu (nganhang_de.xlsx)",
+            data=sample_buffer,
+            file_name="nganhang_de.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="Tải file mẫu này về máy, điền câu hỏi của trường vào rồi tải lên lại bên dưới."
+        )
+        
+        st.divider()
+        
+        uploaded_excel = st.file_uploader("Chọn tệp Excel ngân hàng đề (.xlsx) đã điền", type=["xlsx"])
         
         if uploaded_excel is not None:
             try:
@@ -526,37 +556,9 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
                 st.success(f"🎉 Tải lên thành công! Đã ghi nhận {len(df_bank)} câu hỏi trong ngân hàng đề.")
                 st.markdown("**Xem trước dữ liệu ngân hàng đề:**")
                 st.dataframe(df_bank.head(10), use_container_width=True)
-                
-                # Lưu vào session state để phần góc ôn tập của học sinh có thể đọc được
                 st.session_state.custom_question_bank = df_bank
             except Exception as e:
                 st.error(f"❌ Lỗi đọc tệp Excel: {e}")
-        else:
-            st.info("💡 Nếu chưa có tệp, hệ thống đang sử dụng kho câu hỏi mặc định tích hợp sẵn.")
-
-    with tab_giao:
-        st.subheader("🔗 Tạo Mã Bài Kiểm Tra Trực Tuyến")
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            exam_title = st.text_input("Tiêu đề bài kiểm tra:", "Kiểm tra 15 phút - Môn Tin học 10")
-            class_name = st.text_input("Lớp được giao:", "10A1")
-        with col_g2:
-            exam_code = st.text_input("Mã bài kiểm tra (Mật khẩu truy cập):", "TIN10_01")
-            deadline = st.date_input("Hạn nộp bài:")
-
-        st.markdown("---")
-        st.subheader("📋 Nội dung bài kiểm tra:")
-        exam_content_input = st.text_area(
-            "Dán nội dung câu hỏi hoặc ghi chú hướng dẫn giao bài:",
-            placeholder="Học sinh làm bài ôn tập chương trình Tin học 10..."
-        )
-
-        if st.button("💾 Lưu và Giao Bài Cho Học Sinh", type="primary"):
-            if not exam_code:
-                st.warning("⚠️ Vui lòng nhập mã bài kiểm tra!")
-            else:
-                st.success(f"🎉 Đã tạo thành công bài kiểm tra [Mã: **{exam_code}**] cho lớp **{class_name}**!")
-                st.markdown(f"👉 **Hướng dẫn học sinh:** Truy cập vào mục *'2. Góc Ôn Tập Thông Minh'* và chọn đúng chủ đề để làm bài.")
 
     with tab_cham:
         st.subheader("📊 Bảng Điểm & Thống Kê Kết Quả Lớp Học")
