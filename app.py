@@ -2,6 +2,7 @@ import io
 import json
 import random
 import re
+import time
 from datetime import date
 from typing import Any, Dict, List
 
@@ -148,14 +149,49 @@ init_session_state()
 
 # --- 4. CÁC HÀM XỬ LÝ LÕI ---
 @st.cache_data(show_spinner=False)
-def generate_questions_from_ai(generate_questions_from_ai
+def generate_questions_from_ai(api_key: str, grade: str, matrix_json: str) -> List[Dict[str, Any]]:
+    genai.configure(api_key=api_key)
+    matrix_config = json.loads(matrix_json)
 
-    # Đã cập nhật sang model chuẩn mới nhất theo yêu cầu của Google API
+    lines = []
+    for item in matrix_config:
+        row_str = (
+            f"- {item['topic']} | {item['lesson']}: "
+            f"NB({item['nb']}), TH({item['th']}), VD({item['vd']}), VDC({item['vdc']})"
+        )
+        lines.append(row_str)
+    matrix_str = "\n".join(lines)
+
+    prompt_parts = [
+        f"Bạn là chuyên gia khảo thí Tin học THPT (GDPT 2018 - Kết nối tri thức) khối {grade}.",
+        "Hãy biên soạn bộ câu hỏi trắc nghiệm 4 lựa chọn bám sát ma trận sau:",
+        matrix_str,
+        "YÊU CẦU BẮT BUỘC:",
+        "1. Tổng số câu hỏi khớp chính xác với ma trận.",
+        "2. Mỗi câu có 4 phương án trong mảng options (không ghi A., B., C., D. ở đầu).",
+        "3. Chỉ trả về JSON Array theo cấu trúc:",
+        '[{"lesson": "...", "level": "Nhận biết", "question": "...", "options": ["...", "...", "...", "..."], "correct_index": 0, "explanation": "..."}]',
+    ]
+    prompt = "\n".join(prompt_parts)
+
     model = genai.GenerativeModel("gemini-3.8-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config={"temperature": 0.3, "response_mime_type": "application/json"},
-    )
+    max_retries = 3
+    response = None
+
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.3, "response_mime_type": "application/json"},
+            )
+            if response and response.text:
+                break
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                time.sleep(30)
+                continue
+            else:
+                raise e
 
     if not response or not response.text:
         raise ValueError("Không nhận được phản hồi từ Gemini AI.")
@@ -384,7 +420,7 @@ if app_mode == MODE_1:
             st.warning("Vui lòng chọn ít nhất một bài học!")
         else:
             try:
-                with st.spinner("Gemini AI đang biên soạn và trộn mã đề..."):
+                with st.spinner("Gemini AI đang biên soạn và trộn mã đề (hệ thống tự động đồng bộ nếu gặp giới hạn lưu lượng)..."):
                     m_json = json.dumps(matrix_config, ensure_ascii=False)
                     base_qs = generate_questions_from_ai(api_key_input, selected_grade, m_json)
                     st.session_state.exam_versions = generate_shuffled_versions(base_qs, int(num_versions))
