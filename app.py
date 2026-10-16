@@ -148,30 +148,7 @@ init_session_state()
 
 # --- 4. CÁC HÀM XỬ LÝ LÕI ---
 @st.cache_data(show_spinner=False)
-def generate_questions_from_ai(api_key: str, grade: str, matrix_json: str) -> List[Dict[str, Any]]:
-    genai.configure(api_key=api_key)
-    matrix_config = json.loads(matrix_json)
-
-    lines = []
-    for item in matrix_config:
-        row_str = (
-            f"- {item['topic']} | {item['lesson']}: "
-            f"NB({item['nb']}), TH({item['th']}), VD({item['vd']}), VDC({item['vdc']})"
-        )
-        lines.append(row_str)
-    matrix_str = "\n".join(lines)
-
-    prompt_parts = [
-        f"Bạn là chuyên gia khảo thí Tin học THPT (GDPT 2018 - Kết nối tri thức) khối {grade}.",
-        "Hãy biên soạn bộ câu hỏi trắc nghiệm 4 lựa chọn bám sát ma trận sau:",
-        matrix_str,
-        "YÊU CẦU BẮT BUỘC:",
-        "1. Tổng số câu hỏi khớp chính xác với ma trận.",
-        "2. Mỗi câu có 4 phương án trong mảng options (không ghi A., B., C., D. ở đầu).",
-        "3. Chỉ trả về JSON Array theo cấu trúc:",
-        '[{"lesson": "...", "level": "Nhận biết", "question": "...", "options": ["...", "...", "...", "..."], "correct_index": 0, "explanation": "..."}]',
-    ]
-    prompt = "\n".join(prompt_parts)
+def generate_questions_from_ai(generate_questions_from_ai
 
     # Đã cập nhật sang model chuẩn mới nhất theo yêu cầu của Google API
     model = genai.GenerativeModel("gemini-3.8-flash")
