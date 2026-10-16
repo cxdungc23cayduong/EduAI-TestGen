@@ -55,7 +55,7 @@ CURRICULUM_DATA = {
 if "generated_test" not in st.session_state:
     st.session_state.generated_test = ""
 if "question_bank_pool" not in st.session_state:
-    st.session_state.question_bank_pool = [] # Kho lưu trữ câu hỏi tự động trích xuất từ đề đã tạo
+    st.session_state.question_bank_pool = []
 
 # --- 4. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
@@ -205,7 +205,6 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                     full_text = response.text
                     st.session_state.generated_test = full_text
 
-                    # --- TỰ ĐỘNG TRÍCH XUẤT CÂU HỎI ĐƯA VÀO KHO ÔN TẬP ---
                     extracted_questions = []
                     lines = full_text.split("\n")
                     current_q = {"question": "", "options": [], "answer": "A"}
@@ -314,7 +313,6 @@ elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự 
                     st.markdown(f"**Câu {idx}: {q_item['question']}**")
                     options = q_item['options']
                     if len(options) < 4:
-                        # Bổ sung phương án dự phòng nếu thiếu
                         options = ["A. Không có phương án", "B. Không có phương án", "C. Không có phương án", "D. Không có phương án"]
                     
                     choice = st.radio(
@@ -363,23 +361,4 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
         with c2:
             st.text_input("Mã bài kiểm tra:", "TIN_CAYDUONG_01")
             st.date_input("Hạn nộp:")
-        if st.button("💾 Xác nhận phát hành bài kiểm tra", type="primary"):
-            st.success("🎉 Đã phát hành bài kiểm tra thành công cho học sinh!")
-
-    with tab2:
-        st.subheader("📊 Bảng Điểm Tổng Hợp")
-        mock_data = {
-            "STT": [1, 2, 3, 4],
-            "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư"],
-            "Lớp": ["10A1", "10A1", "10A1", "10A1"],
-            "Điểm số": [9.0, 8.5, 10.0, 7.5],
-            "Trạng thái": ["Đã nộp bài", "Đã nộp bài", "Đã nộp bài", "Đã nộp bài"]
-        }
-        df_score = pd.DataFrame(mock_data)
-        st.dataframe(df_score, use_container_width=True, hide_index=True)
-        
-        score_buf = io.BytesIO()
-        with pd.ExcelWriter(score_buf, engine="openpyxl") as writer:
-            df_score.to_excel(writer, index=False, sheet_name="BangDiem")
-        score_buf.seek(0)
-        st.download_button("📥 Tải Bảng Điểm Excel", data=score_buf, file_name="BangDiem_Lop.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        if st.button("💾 Xác nhận phát hành bài kiểm tra", type="primary
