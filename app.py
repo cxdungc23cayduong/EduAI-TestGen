@@ -183,7 +183,7 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
             try:
                 with st.spinner("Gemini AI đang phân tích ma trận, sinh đề và cập nhật vào Ngân hàng ôn tập..."):
                     genai.configure(api_key=api_key_input)
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-1.5-pro")
 
                     matrix_str = ""
                     for config in matrix_config:
