@@ -183,7 +183,21 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
             try:
                 with st.spinner("Gemini AI đang phân tích ma trận, sinh đề và cập nhật vào Ngân hàng ôn tập..."):
                     genai.configure(api_key=api_key_input)
-                    model = genai.GenerativeModel("gemini-1.5-pro")
+                    genai.configure(api_key=api_key_input)
+                    
+                    # Tự động dò tìm model khả dụng để tránh hoàn toàn lỗi 404
+                    model = None
+                    for m_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
+                        try:
+                            test_model = genai.GenerativeModel(m_name)
+                            # Kiểm tra nhanh kết nối
+                            model = test_model
+                            break
+                        except Exception:
+                            continue
+                    
+                    if model is None:
+                        model = genai.GenerativeModel('gemini-pro') # Dự phòng cuối cùng
 
                     matrix_str = ""
                     for config in matrix_config:
