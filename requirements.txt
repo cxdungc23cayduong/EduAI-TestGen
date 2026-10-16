@@ -1,5 +1,5 @@
 streamlit
-google-generativeai
-python-docx
 pandas
+python-docx
 openpyxl
+google-generativeai>=0.7.2
