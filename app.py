@@ -502,17 +502,40 @@ elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự 
                 st.metric(label="🌟 Điểm số tổng kết của em (Thang điểm 10)", value=f"{percent:.1f} điểm", delta=f"Đúng {score}/{total_valid} câu")
 
 # =========================================================================
-# PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM (LMS GIÁO VIÊN)
+# PHÂN VÙNG 3: QUẢN LÝ NGÂN HÀNG ĐỀ & CHẤM ĐIỂM (LMS GIÁO VIÊN)
 # =========================================================================
 elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)":
-    st.markdown("### 📂 HỆ THỐNG GIAO BÀI VÀ CHẤM ĐIỂM TỰ ĐỘNG")
-    st.info("Thầy/cô có thể tạo mã đề giao về cho lớp, nhập danh sách điểm hoặc xuất báo cáo thống kê kết quả học tập của học sinh.")
+    st.markdown("### 📂 HỆ THỐNG QUẢN LÝ NGÂN HÀNG ĐỀ & CHẤM ĐIỂM")
+    st.info("Thầy/cô có thể tải lên tệp Excel chứa ngân hàng câu hỏi riêng của trường Cây Dương, giao bài tập trực tuyến và xem bảng điểm của học sinh.")
 
-    tab_giao, tab_cham = st.tabs(["1. Tạo & Giao Bài Kiểm Tra", "2. Chấm Điểm & Thống Kê Lớp Học"])
+    tab_nganhang, tab_giao, tab_cham = st.tabs([
+        "1. Tải lên Ngân hàng Đề (Excel)", 
+        "2. Tạo & Giao Bài Kiểm Tra", 
+        "3. Chấm Điểm & Thống Kê"
+    ])
+
+    with tab_nganhang:
+        st.subheader("📤 Tải lên Tệp Ngân Hàng Câu Hỏi (Excel)")
+        st.markdown("Thầy/cô tải lên tệp Excel chứa danh sách câu hỏi trắc nghiệm để học sinh ôn tập trực tuyến.")
+        
+        uploaded_excel = st.file_uploader("Chọn tệp Excel ngân hàng đề (.xlsx)", type=["xlsx"])
+        
+        if uploaded_excel is not None:
+            try:
+                df_bank = pd.read_excel(uploaded_excel)
+                st.success(f"🎉 Tải lên thành công! Đã ghi nhận {len(df_bank)} câu hỏi trong ngân hàng đề.")
+                st.markdown("**Xem trước dữ liệu ngân hàng đề:**")
+                st.dataframe(df_bank.head(10), use_container_width=True)
+                
+                # Lưu vào session state để phần góc ôn tập của học sinh có thể đọc được
+                st.session_state.custom_question_bank = df_bank
+            except Exception as e:
+                st.error(f"❌ Lỗi đọc tệp Excel: {e}")
+        else:
+            st.info("💡 Nếu chưa có tệp, hệ thống đang sử dụng kho câu hỏi mặc định tích hợp sẵn.")
 
     with tab_giao:
         st.subheader("🔗 Tạo Mã Bài Kiểm Tra Trực Tuyến")
-        
         col_g1, col_g2 = st.columns(2)
         with col_g1:
             exam_title = st.text_input("Tiêu đề bài kiểm tra:", "Kiểm tra 15 phút - Môn Tin học 10")
@@ -522,23 +545,22 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
             deadline = st.date_input("Hạn nộp bài:")
 
         st.markdown("---")
-        st.subheader("📋 Nhập danh sách câu hỏi trắc nghiệm (Dạng văn bản hoặc tự sinh từ AI ở Mục 1):")
+        st.subheader("📋 Nội dung bài kiểm tra:")
         exam_content_input = st.text_area(
-            "Dán nội dung câu hỏi và đáp án vào đây:",
-            placeholder="CÂU 1: Thông tin là gì?\nA. Dữ liệu\nB. Hiểu biết...\nĐÁP ÁN ĐÚNG: A"
+            "Dán nội dung câu hỏi hoặc ghi chú hướng dẫn giao bài:",
+            placeholder="Học sinh làm bài ôn tập chương trình Tin học 10..."
         )
 
-        if st.button("💾 Lưu và Xuất Link Giao Bài Cho Học Sinh", type="primary"):
-            if not exam_code or not exam_content_input:
-                st.warning("⚠️ Vui lòng nhập mã bài kiểm tra và nội dung câu hỏi!")
+        if st.button("💾 Lưu và Giao Bài Cho Học Sinh", type="primary"):
+            if not exam_code:
+                st.warning("⚠️ Vui lòng nhập mã bài kiểm tra!")
             else:
                 st.success(f"🎉 Đã tạo thành công bài kiểm tra [Mã: **{exam_code}**] cho lớp **{class_name}**!")
-                st.markdown(f"👉 **Đường dẫn giao cho học sinh:** Gửi học sinh truy cập vào mục *'2. Góc Ôn Tập Thông Minh'* và nhập mã đề **{exam_code}** để làm bài.")
+                st.markdown(f"👉 **Hướng dẫn học sinh:** Truy cập vào mục *'2. Góc Ôn Tập Thông Minh'* và chọn đúng chủ đề để làm bài.")
 
     with tab_cham:
         st.subheader("📊 Bảng Điểm & Thống Kê Kết Quả Lớp Học")
         
-        # Tạo bảng dữ liệu mẫu mô phỏng danh sách lớp học sinh nộp bài
         mock_data = {
             "STT": [1, 2, 3, 4, 5],
             "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư", "Vũ Hoàng Long"],
@@ -549,18 +571,15 @@ elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viê
             "Trạng thái": ["Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp"]
         }
         df_scores = pd.DataFrame(mock_data)
-        
         st.dataframe(df_scores, use_container_width=True, hide_index=True)
         
-        # Nút xuất Excel bảng điểm
         score_buffer = io.BytesIO()
         with pd.ExcelWriter(score_buffer, engine="openpyxl") as writer:
             df_scores.to_excel(writer, index=False, sheet_name="BangDiemLop")
         score_buffer.seek(0)
         
         st.download_button(
-            label="📥 Tải Bảng Điểm Lớp (Excel chuẩn)",
-            data=score_buffer,
+            label="📥 Tải Bảng Điểm Lớp (Excel chuẩn)", data=score_buffer,
             file_name="Bang_Diem_Trac_Nghiem_TinHoc.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
