@@ -64,20 +64,40 @@ if "generated_test" not in st.session_state:
 if "question_bank_pool" not in st.session_state:
     st.session_state.question_bank_pool = []
 
-# --- 4. HÀM TỐC ĐỘ CAO GỌI GEMINI AI ---
-@st.cache_data(show_spinner=False)
+# --- 4. HÀM GỌI GEMINI AI TỰ ĐỘNG DÒ TÌM MODEL ---
 def cached_gemini_generation(api_key, prompt_text):
-    """Hàm cache kết quả AI giúp không phải gọi lại nếu trùng prompt, tăng tốc độ tối đa"""
     genai.configure(api_key=api_key)
-    # Sử dụng model nhanh và ổn định nhất
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        prompt_text,
-        generation_config={"temperature": 0.3} # Giảm độ ngẫu nhiên giúp sinh nội dung nhanh hơn
-    )
-    if response and response.text:
-        return response.text
-    raise Exception("Không nhận được phản hồi từ AI.")
+    
+    # Tự động quét qua tất cả các model hỗ trợ generateContent trên tài khoản của thầy
+    target_model = None
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                target_model = m.name
+                break
+    except Exception:
+        pass
+        
+    # Nếu quét không được, dùng danh sách dự phòng an toàn
+    models_to_try = [target_model, 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    
+    last_err = None
+    for m_name in models_to_try:
+        if not m_name:
+            continue
+        try:
+            model = genai.GenerativeModel(m_name)
+            response = model.generate_content(
+                prompt_text,
+                generation_config={"temperature": 0.3}
+            )
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            last_err = e
+            continue
+            
+    raise Exception(f"Không thể kết nối API. Chi tiết lỗi: {last_err}")
 
 # --- 5. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
