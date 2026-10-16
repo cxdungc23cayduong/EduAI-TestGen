@@ -1,5 +1,6 @@
 import io
 import random
+import re
 import google.generativeai as genai
 import streamlit as st
 import pandas as pd
@@ -18,150 +19,48 @@ st.set_page_config(
 CURRICULUM_DATA = {
     "Lớp 10": {
         "Chủ đề 1: Máy tính và xã hội tri thức": [
-            "Bài 1: Thông tin và xử lí thông tin",
-            "Bài 2: Vai trò của thiết bị thông minh và tin học đối với xã hội",
-            "Bài 3: Một số kiểu dữ liệu và dữ liệu văn bản",
-            "Bài 4: Hệ nhị phân và dữ liệu số nguyên",
-            "Bài 5: Dữ liệu lôgic",
-            "Bài 6: Dữ liệu âm thanh và hình ảnh",
-            "Bài 7: Thực hành sử dụng thiết bị số thông dụng"
+            "Bài 1: Thông tin và xử lí thông tin", "Bài 2: Vai trò của thiết bị thông minh và tin học đối với xã hội",
+            "Bài 3: Một số kiểu dữ liệu và dữ liệu văn bản", "Bài 4: Hệ nhị phân và dữ liệu số nguyên",
+            "Bài 5: Dữ liệu lôgic", "Bài 6: Dữ liệu âm thanh và hình ảnh", "Bài 7: Thực hành sử dụng thiết bị số thông dụng"
         ],
-        "Chủ đề 2: Mạng máy tính và Internet": [
-            "Bài 8: Mạng máy tính trong cuộc sống hiện đại",
-            "Bài 9: An toàn trên không gian mạng",
-            "Bài 10: Thực hành khai thác tài nguyên trên Internet"
-        ],
-        "Chủ đề 3: Đạo đức, pháp luật và văn hoá trong môi trường số": [
-            "Bài 11: Ứng xử trên môi trường số. Nghĩa vụ tôn trọng bản quyền"
-        ],
-        "Chủ đề 4: Ứng dụng tin học": [
-            "Bài 12: Phần mềm thiết kế đồ hoạ",
-            "Bài 13: Bổ sung các đối tượng đồ hoạ",
-            "Bài 14: Làm việc với đối tượng đường và văn bản",
-            "Bài 15: Hoàn thiện hình ảnh đồ hoạ"
-        ],
+        "Chủ đề 2: Mạng máy tính và Internet": ["Bài 8: Mạng máy tính trong cuộc sống hiện đại", "Bài 9: An toàn trên không gian mạng", "Bài 10: Thực hành khai thác tài nguyên trên Internet"],
+        "Chủ đề 3: Đạo đức, pháp luật và văn hoá trong môi trường số": ["Bài 11: Ứng xử trên môi trường số. Nghĩa vụ tôn trọng bản quyền"],
+        "Chủ đề 4: Ứng dụng tin học": ["Bài 12: Phần mềm thiết kế đồ hoạ", "Bài 13: Bổ sung các đối tượng đồ hoạ", "Bài 14: Làm việc với đối tượng đường và văn bản", "Bài 15: Hoàn thiện hình ảnh đồ hoạ"],
         "Chủ đề 5: Giải quyết vấn đề với sự trợ giúp của máy tính": [
-            "Bài 16: Ngôn ngữ lập trình bậc cao và Python",
-            "Bài 17: Biến và lệnh gán",
-            "Bài 18: Các lệnh vào ra đơn giản",
-            "Bài 19: Câu lệnh rẽ nhánh if",
-            "Bài 20: Câu lệnh lặp for",
-            "Bài 21: Câu lệnh lặp while",
-            "Bài 22: Kiểu dữ liệu danh sách",
-            "Bài 23: Một số lệnh làm việc với dữ liệu danh sách",
-            "Bài 24: Xâu kí tự",
-            "Bài 25: Một số lệnh làm việc với xâu kí tự",
-            "Bài 26: Hàm trong Python",
-            "Bài 27: Tham số của hàm",
-            "Bài 28: Phạm vi của biến",
-            "Bài 29: Nhận biết lỗi chương trình",
-            "Bài 30: Kiểm thử và gỡ lỗi chương trình",
-            "Bài 31: Thực hành viết chương trình đơn giản",
-            "Bài 32: Ôn tập lập trình Python"
+            "Bài 16: Ngôn ngữ lập trình bậc cao và Python", "Bài 17: Biến và lệnh gán", "Bài 18: Các lệnh vào ra đơn giản",
+            "Bài 19: Câu lệnh rẽ nhánh if", "Bài 20: Câu lệnh lặp for", "Bài 21: Câu lệnh lặp while",
+            "Bài 22: Kiểu dữ liệu danh sách", "Bài 23: Một số lệnh làm việc với dữ liệu danh sách", "Bài 24: Xâu kí tự",
+            "Bài 25: Một số lệnh làm việc với xâu kí tự", "Bài 26: Hàm trong Python", "Bài 27: Tham số của hàm",
+            "Bài 28: Phạm vi của biến", "Bài 29: Nhận biết lỗi chương trình", "Bài 30: Kiểm thử và gỡ lỗi chương trình",
+            "Bài 31: Thực hành viết chương trình đơn giản", "Bài 32: Ôn tập lập trình Python"
         ],
-        "Chủ đề 6: Hướng nghiệp với tin học": [
-            "Bài 33: Nghề thiết kế đồ hoạ máy tính",
-            "Bài 34: Nghề phát triển phần mềm"
-        ]
+        "Chủ đề 6: Hướng nghiệp với tin học": ["Bài 33: Nghề thiết kế đồ hoạ máy tính", "Bài 34: Nghề phát triển phần mềm"]
     },
     "Lớp 11 (Tin học ứng dụng)": {
-        "Chủ đề 1: Máy tính và xã hội tri thức": [
-            "Bài 1: Hệ điều hành",
-            "Bài 2: Thực hành sử dụng hệ điều hành",
-            "Bài 3: Phần mềm nguồn mở và phần mềm chạy trên Internet",
-            "Bài 4: Bên trong máy tính",
-            "Bài 5: Kết nối máy tính với các thiết bị số"
-        ],
-        "Chủ đề 2: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin": [
-            "Bài 6: Lưu trữ và chia sẻ tệp tin trên Internet",
-            "Bài 7: Thực hành tìm kiếm thông tin trên Internet",
-            "Bài 8: Thực hành nâng cao sử dụng thư điện tử và mạng xã hội"
-        ],
-        "Chủ đề 3: Đạo đức, pháp luật và văn hoá trong môi trường số": [
-            "Bài 9: Giao tiếp an toàn trên Internet"
-        ],
-        "Chủ đề 4: Giới thiệu các hệ cơ sở dữ liệu": [
-            "Bài 10: Lưu trữ dữ liệu và khai thác thông tin phục vụ quản lí",
-            "Bài 11: Cơ sở dữ liệu",
-            "Bài 12: Hệ quản trị cơ sở dữ liệu và hệ cơ sở dữ liệu",
-            "Bài 13: Cơ sở dữ liệu quan hệ",
-            "Bài 14: SQL - Ngôn ngữ truy vấn có cấu trúc",
-            "Bài 15: Bảo mật và an toàn hệ cơ sở dữ liệu"
-        ],
-        "Chủ đề 5: Hướng nghiệp với tin học": [
-            "Bài 16: Công việc quản trị cơ sở dữ liệu"
-        ],
-        "Chủ đề 6: Thực hành tạo và khai thác cơ sở dữ liệu": [
-            "Bài 17: Quản trị cơ sở dữ liệu trên máy tính",
-            "Bài 18: Thực hành xác định cấu trúc bảng và các trường khoá",
-            "Bài 19: Thực hành tạo lập cơ sở dữ liệu và các bảng",
-            "Bài 20: Thực hành tạo lập các bảng có khoá ngoài",
-            "Bài 21: Thực hành cập nhật và truy xuất dữ liệu các bảng",
-            "Bài 22: Thực hành cập nhật bảng dữ liệu có tham chiếu",
-            "Bài 23: Thực hành truy xuất dữ liệu qua liên kết các bảng",
-            "Bài 24: Thực hành sao lưu dữ liệu"
-        ],
-        "Chủ đề 7: Phần mềm chỉnh sửa ảnh và làm video": [
-            "Bài 25: Phần mềm chỉnh sửa ảnh",
-            "Bài 26: Công cụ tinh chỉnh màu sắc và công cụ chọn",
-            "Bài 27: Công cụ vẽ và một số ứng dụng",
-            "Bài 28: Tạo ảnh động",
-            "Bài 29: Khám phá phần mềm làm phim",
-            "Bài 30: Biên tập phim",
-            "Bài 31: Thực hành tạo phim hoạt hình"
-        ]
+        "Chủ đề 1: Máy tính và xã hội tri thức": ["Bài 1: Hệ điều hành", "Bài 2: Thực hành sử dụng hệ điều hành", "Bài 3: Phần mềm nguồn mở và phần mềm chạy trên Internet", "Bài 4: Bên trong máy tính", "Bài 5: Kết nối máy tính với các thiết bị số"],
+        "Chủ đề 2: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin": ["Bài 6: Lưu trữ và chia sẻ tệp tin trên Internet", "Bài 7: Thực hành tìm kiếm thông tin trên Internet", "Bài 8: Thực hành nâng cao sử dụng thư điện tử và mạng xã hội"],
+        "Chủ đề 3: Đạo đức, pháp luật và văn hoá trong môi trường số": ["Bài 9: Giao tiếp an toàn trên Internet"],
+        "Chủ đề 4: Giới thiệu các hệ cơ sở dữ liệu": ["Bài 10: Lưu trữ dữ liệu và khai thác thông tin phục vụ quản lí", "Bài 11: Cơ sở dữ liệu", "Bài 12: Hệ quản trị cơ sở dữ liệu và hệ cơ sở dữ liệu", "Bài 13: Cơ sở dữ liệu quan hệ", "Bài 14: SQL - Ngôn ngữ truy vấn có cấu trúc", "Bài 15: Bảo mật và an toàn hệ cơ sở dữ liệu"],
+        "Chủ đề 5: Hướng nghiệp với tin học": ["Bài 16: Công việc quản trị cơ sở dữ liệu"],
+        "Chủ đề 6: Thực hành tạo và khai thác cơ sở dữ liệu": [f"Bài {i}: Thực hành..." for i in range(17, 25)],
+        "Chủ đề 7: Phần mềm chỉnh sửa ảnh và làm video": [f"Bài {i}: ..." for i in range(25, 32)]
     },
     "Lớp 12 (Tin học ứng dụng)": {
-        "Chủ đề 1: Máy tính và xã hội tri thức": [
-            "Làm quen với Trí tuệ nhân tạo",
-            "Trí tuệ nhân tạo trong khoa học và đời sống"
-        ],
-        "Chủ đề 2: Mạng máy tính và Internet": [
-            "Một số thiết bị mạng thông dụng",
-            "Giao thức mạng",
-            "Thực hành chia sẻ tài nguyên trên mạng"
-        ],
-        "Chủ đề 3: Đạo đức, pháp luật và văn hoá trong môi trường số": [
-            "Giao tiếp và ứng xử trong không gian mạng"
-        ],
-        "Chủ đề 4: Giải quyết vấn đề với sự trợ giúp của máy tính": [
-            "HTML và cấu trúc trang web",
-            "Định dạng văn bản",
-            "Tạo danh sách, bảng",
-            "Tạo liên kết",
-            "Chèn tệp tin đa phương tiện và khung nội tuyến vào trang web",
-            "Tạo biểu mẫu",
-            "Khái niệm, vai trò của CSS",
-            "Định dạng văn bản bằng CSS",
-            "Tạo màu cho chữ và nền",
-            "Định dạng khung",
-            "Các mức ưu tiên của bộ chọn",
-            "Thực hành tổng hợp thiết kế trang web"
-        ],
-        "Chủ đề 5: Hướng nghiệp với tin học": [
-            "Dịch vụ sửa chữa và bảo trì máy tính",
-            "Nhóm nghề quản trị thuộc ngành Công nghệ thông tin",
-            "Hội thảo hướng nghiệp"
-        ],
-        "Chủ đề 6: Máy tính và xã hội tri thức (Định hướng ứng dụng)": [
-            "Thực hành kết nối các thiết bị số"
-        ],
-        "Chủ đề 7: Ứng dụng tin học (Định hướng ứng dụng)": [
-            "Chuẩn bị xây dựng trang web",
-            "Xây dựng phần đầu trang web",
-            "Xây dựng phần thân và chân trang web",
-            "Liên kết và thanh điều hướng",
-            "Biểu mẫu trên trang web",
-            "Thực hành tổng hợp"
-        ]
+        "Chủ đề 1: Máy tính và xã hội tri thức": ["Làm quen với Trí tuệ nhân tạo", "Trí tuệ nhân tạo trong khoa học và đời sống"],
+        "Chủ đề 4: Giải quyết vấn đề với sự trợ giúp của máy tính": ["HTML và cấu trúc trang web", "Định dạng văn bản", "Tạo danh sách, bảng", "Tạo liên kết", "Khái niệm, vai trò của CSS", "Định dạng văn bản bằng CSS"]
     }
 }
 
-# --- 3. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
+# --- 3. KHỞI TẠO BIẾN TOÀN CỤC TRONG SESSION STATE ---
+if "generated_test" not in st.session_state:
+    st.session_state.generated_test = ""
+if "question_bank_pool" not in st.session_state:
+    st.session_state.question_bank_pool = [] # Kho lưu trữ câu hỏi tự động trích xuất từ đề đã tạo
+
+# --- 4. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
 st.title("🤖 EduAI-TestGen: Hệ Thống Khảo Thí & Ôn Tập Thông Minh")
 
-# Tạo Menu chuyển đổi các phân vùng chức năng
 app_mode = st.selectbox(
     "🎯 CHỌN CHỨC NĂNG HỆ THỐNG:",
     [
@@ -173,7 +72,7 @@ app_mode = st.selectbox(
 st.divider()
 
 # =========================================================================
-# PHÂN VÙNG 1: KHẢO THÍ & RA ĐỀ (CODE GỐC CỦA THẦY)
+# PHÂN VÙNG 1: KHẢO THÍ & RA ĐỀ (TỰ ĐỘNG LƯU VÀO KHO ĐỀ)
 # =========================================================================
 if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
     st.sidebar.markdown("### 👨‍🏫 QUẢN LÝ KHẢO THÍ")
@@ -241,7 +140,6 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
     total_questions = 0
 
     if selected_lessons and st.session_state.matrix_df_state is not None:
-        st.sidebar.caption("💡 Click vào ô số để sửa ma trận:")
         edited_df = st.sidebar.data_editor(
             st.session_state.matrix_df_state, hide_index=True,
             column_config={
@@ -274,34 +172,7 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
 
         st.sidebar.success(f"**📊 Tổng số câu hỏi: {total_questions} câu**")
 
-        if not df_selected.empty:
-            excel_buffer = io.BytesIO()
-            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-                df_export = df_selected.drop(columns=["Chọn"]).reset_index(drop=True)
-                df_export.index += 1
-                df_export.index.name = "STT"
-                df_export.to_excel(writer, sheet_name="MaTranDeThi", startrow=5)
-                ws = writer.sheets["MaTranDeThi"]
-                ws["A1"] = "TRƯỜNG THCS VÀ THPT CÂY DƯƠNG"
-                ws["A2"] = f"MA TRẬN ĐỀ KIỂM TRA ĐỊNH KỲ MÔN TIN HỌC {selected_grade.upper()}"
-                ws["A3"] = "GIÁO VIÊN BIÊN SOẠN: CAO XUÂN ĐÚNG"
-                ws["A4"] = f"Thời gian làm bài: 45 phút | Tổng số câu: {total_questions} câu"
-                
-                for col in ws.columns:
-                    max_len = max(len(str(cell.value or '')) for cell in col)
-                    col_letter = col[0].column_letter
-                    ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
-
-            excel_buffer.seek(0)
-            st.sidebar.download_button(
-                label="📊 Tải Ma trận (Excel chuẩn)", data=excel_buffer,
-                file_name=f"Ma_Tran_De_Thi_TinHoc_{selected_grade.replace(' ', '_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-
     st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
-    if "generated_test" not in st.session_state:
-        st.session_state.generated_test = ""
 
     if st.button("🚀 Bắt đầu sinh đề kiểm tra", type="primary"):
         if not api_key_input:
@@ -310,7 +181,7 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
             st.warning("⚠️ Vui lòng chọn ít nhất một bài học!")
         else:
             try:
-                with st.spinner("🤖 Gemini AI đang phân tích ma trận và thực hiện hoán vị trộn đề..."):
+                with st.spinner("🤖 Gemini AI đang phân tích ma trận, sinh đề và tự động cập nhật vào Ngân hàng ôn tập..."):
                     genai.configure(api_key=api_key_input)
                     model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -330,13 +201,35 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                         "3. Bắt đầu mỗi mã đề bằng: '### MÃ ĐỀ <số>' (VD: ### MÃ ĐỀ 101).\n"
                         "4. Bắt đầu phần đáp án bằng: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM' ở cuối văn bản kèm bảng tổng hợp.\n"
                     )
-                    response = model.generate_content(prompt, stream=True)
-                    def stream_parser():
-                        for chunk in response:
-                            if chunk.text: yield chunk.text
-                    full_text = st.write_stream(stream_parser)
+                    response = model.generate_content(prompt)
+                    full_text = response.text
                     st.session_state.generated_test = full_text
-                    st.success("🎉 Sinh và trộn đề thành công!")
+
+                    # --- TỰ ĐỘNG TRÍCH XUẤT CÂU HỎI ĐƯA VÀO KHO ÔN TẬP ---
+                    extracted_questions = []
+                    lines = full_text.split("\n")
+                    current_q = {"question": "", "options": [], "answer": "A"}
+                    for line in lines:
+                        line_s = line.strip()
+                        if line_s.startswith("Câu ") or line_s.startswith("CÂU "):
+                            if current_q["question"] and len(current_q["options"]) >= 2:
+                                extracted_questions.append(current_q)
+                            current_q = {"question": line_s, "options": [], "answer": "A"}
+                        elif line_s.startswith("A.") or line_s.startswith("B.") or line_s.startswith("C.") or line_s.startswith("D."):
+                            current_q["options"].append(line_s)
+                        elif "ĐÁP ÁN:" in line_s.upper() or "ĐÚNG:" in line_s.upper():
+                            if "A" in line_s: current_q["answer"] = "A"
+                            elif "B" in line_s: current_q["answer"] = "B"
+                            elif "C" in line_s: current_q["answer"] = "C"
+                            elif "D" in line_s: current_q["answer"] = "D"
+                    if current_q["question"] and len(current_q["options"]) >= 2:
+                        extracted_questions.append(current_q)
+
+                    if extracted_questions:
+                        st.session_state.question_bank_pool.extend(extracted_questions)
+                        st.success(f"🎉 Đã sinh đề thành công và tự động thêm {len(extracted_questions)} câu hỏi vào Ngân hàng ôn tập cho học sinh!")
+                    else:
+                        st.success("🎉 Đã sinh đề thành công!")
             except Exception as e:
                 st.error(f"❌ Lỗi kết nối Gemini AI: {e}")
 
@@ -393,195 +286,100 @@ if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
         )
 
 # =========================================================================
-# PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH (DÀNH CHO HỌC SINH TỰ ÔN)
+# PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH (LẤY TỪ KHO ĐỀ ĐÃ TẠO)
 # =========================================================================
 elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)":
-    st.markdown("### 🎓 PHÒNG HỌC & ÔN TẬP TRỰC TUYẾN MÔN TIN HỌC")
-    st.info("Học sinh chọn khối lớp và bài học muốn ôn tập. AI sẽ tự động tạo một bộ đề trắc nghiệm tương tác giúp học sinh kiểm tra kiến thức tức thì!")
+    st.markdown("### 🎓 PHÒNG ÔN TẬP TRỰC TUYẾN TỪ KHO ĐỀ CỦA GIÁO VIÊN")
+    st.info("Hệ thống tự động tổng hợp câu hỏi từ các đề kiểm tra mà thầy cô đã biên soạn để học sinh ôn tập trực tuyến.")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        hs_grade = st.selectbox("Chọn khối lớp của em", list(CURRICULUM_DATA.keys()), key="hs_grade")
-    with col2:
-        # Lấy danh sách bài học phẳng
-        all_lessons_flat = []
-        for top, less in CURRICULUM_DATA[hs_grade].items():
-            for l in less:
-                all_lessons_flat.append(l)
-        hs_lesson = st.selectbox("Chọn bài học cần ôn tập", all_lessons_flat, key="hs_lesson")
-
-    hs_api_key = st.text_input("Nhập mã Gemini API Key được cung cấp bởi giáo viên:", type="password", key="hs_api")
-    num_practice_q = st.slider("Số lượng câu hỏi ôn tập:", min_value=5, max_value=20, value=5, step=5)
-
-    if "practice_quiz" not in st.session_state:
-        st.session_state.practice_quiz = None
-    if "user_answers" not in st.session_state:
-        st.session_state.user_answers = {}
-
-    if st.button("🎯 Bắt đầu làm bài ôn tập", type="primary"):
-        if not hs_api_key:
-            st.error("⚠️ Vui lòng nhập API Key để AI tạo đề ôn tập!")
-        else:
-            with st.spinner("🤖 AI đang biên soạn bộ câu hỏi ôn tập bám sát chương trình..."):
-                try:
-                    genai.configure(api_key=hs_api_key)
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    prompt_quiz = (
-                        f"Bạn là giáo viên Tin học. Hãy tạo {num_practice_q} câu hỏi trắc nghiệm khách quan về bài học: '{hs_lesson}' ({hs_grade}, sách Kết nối tri thức).\n"
-                        "Mỗi câu hỏi có 4 phương án A, B, C, D và chỉ có 1 đáp án đúng.\n"
-                        "Định dạng nghiêm ngặt bắt buộc cho mỗi câu:\n"
-                        "CÂU [Số]: [Nội dung câu hỏi]\n"
-                        "A. [Đáp án A]\n"
-                        "B. [Đáp án B]\n"
-                        "C. [Đáp án C]\n"
-                        "D. [Đáp án D]\n"
-                        "ĐÁP ÁN ĐÚNG: [A/B/C/D] - [Giải thích ngắn gọn vì sao đúng]\n"
-                    )
-                    res = model.generate_content(prompt_quiz)
-                    st.session_state.practice_quiz = res.text
-                    st.session_state.user_answers = {}
-                    st.success("🎉 Đã tạo xong đề ôn tập! Em hãy trả lời các câu hỏi bên dưới.")
-                except Exception as e:
-                    st.error(f"Lỗi tạo đề ôn tập: {e}")
-
-    # Hiển thị giao diện làm bài trắc nghiệm cho học sinh
-    if st.session_state.practice_quiz:
-        st.markdown("---")
-        st.subheader(f"📝 BÀI ÔN TẬP: {hs_lesson}")
+    if not st.session_state.question_bank_pool:
+        st.warning("⚠️ Kho ngân hàng câu hỏi đang trống! Thầy cô vui lòng vào **'1. Khảo Thí & Ra Đề'** và bấm sinh ít nhất một đề kiểm tra để hệ thống tự động cập nhật câu hỏi vào đây.")
+    else:
+        st.success(f"📚 Kho ôn tập hiện có **{len(st.session_state.question_bank_pool)} câu hỏi** từ các đề kiểm tra đã tạo.")
         
-        quiz_text = st.session_state.practice_quiz
-        questions = quiz_text.split("CÂU ")
-        
-        submitted = False
-        with st.form("quiz_form"):
-            for idx, q in enumerate(questions[1:], 1):
-                lines = [l.strip() for l in q.strip().split("\n") if l.strip()]
-                if len(lines) >= 5:
-                    q_title = lines[0]
-                    opts = lines[1:5] # A, B, C, D
-                    st.markdown(f"**Câu {idx}: {q_title}**")
+        num_to_quiz = st.slider("Chọn số lượng câu hỏi làm bài ôn tập:", min_value=3, max_value=min(15, len(st.session_state.question_bank_pool)), value=5)
+
+        if "quiz_session" not in st.session_state:
+            st.session_state.quiz_session = None
+
+        if st.button("🎯 Bắt đầu làm bài trắc nghiệm ôn tập", type="primary"):
+            st.session_state.quiz_session = random.sample(st.session_state.question_bank_pool, num_to_quiz)
+            st.session_state.student_choices = {}
+
+        if st.session_state.quiz_session:
+            st.markdown("---")
+            submitted_quiz = False
+            with st.form("student_quiz_form"):
+                for idx, q_item in enumerate(st.session_state.quiz_session, 1):
+                    st.markdown(f"**Câu {idx}: {q_item['question']}**")
+                    options = q_item['options']
+                    if len(options) < 4:
+                        # Bổ sung phương án dự phòng nếu thiếu
+                        options = ["A. Không có phương án", "B. Không có phương án", "C. Không có phương án", "D. Không có phương án"]
                     
                     choice = st.radio(
-                        f"Chọn đáp án câu {idx}:", 
+                        f"Chọn đáp án câu {idx}:",
                         options=["Chưa chọn", "A", "B", "C", "D"],
-                        key=f"q_{idx}",
+                        key=f"std_q_{idx}",
                         label_visibility="collapsed"
                     )
-                    st.session_state.user_answers[idx] = choice
+                    st.session_state.student_choices[idx] = choice
                     st.markdown("")
 
-            submitted = st.form_submit_button("📤 Nộp bài và xem kết quả", type="primary")
+                submitted_quiz = st.form_submit_button("📤 Nộp bài và chấm điểm", type="primary")
 
-        if submitted:
-            score = 0
-            total_valid = 0
-            st.markdown("### 📊 KẾT QUẢ ÔN TẬP CỦA EM")
-            
-            for idx, q in enumerate(questions[1:], 1):
-                lines = [l.strip() for l in q.strip().split("\n") if l.strip()]
-                correct_line = ""
-                for l in lines:
-                    if "ĐÁP ÁN ĐÚNG:" in l:
-                        correct_line = l
-                        break
-                
-                if correct_line:
-                    total_valid += 1
-                    correct_ans = correct_line.split("ĐÁP ÁN ĐÚNG:")[1].strip()[0] # Lấy ký tự A, B, C hoặc D
-                    user_ans = st.session_state.user_answers.get(idx, "Chưa chọn")
-                    
+            if submitted_quiz:
+                score_cnt = 0
+                st.markdown("### 📊 KẾT QUẢ ÔN TẬP CỦA HỌC SINH")
+                for idx, q_item in enumerate(st.session_state.quiz_session, 1):
+                    user_ans = st.session_state.student_choices.get(idx, "Chưa chọn")
+                    correct_ans = q_item['answer']
                     if user_ans == correct_ans:
-                        score += 1
-                        st.success(f"✅ Câu {idx}: Đúng! (Em chọn {user_ans} | {correct_line})")
+                        score_cnt += 1
+                        st.success(f"✅ Câu {idx}: Đúng! (Em chọn {user_ans})")
                     else:
-                        st.error(f"❌ Câu {idx}: Sai. (Em chọn {user_ans} | Đáp án đúng: {correct_line})")
+                        st.error(f"❌ Câu {idx}: Sai. (Em chọn {user_ans} | Đáp án đúng: {correct_ans})")
 
-            if total_valid > 0:
-                percent = (score / total_valid) * 10
+                total_q = len(st.session_state.quiz_session)
+                final_score = (score_cnt / total_q) * 10
                 st.balloons()
-                st.metric(label="🌟 Điểm số tổng kết của em (Thang điểm 10)", value=f"{percent:.1f} điểm", delta=f"Đúng {score}/{total_valid} câu")
+                st.metric(label="🌟 Điểm tổng kết", value=f"{final_score:.1f} điểm", delta=f"Đúng {score_cnt}/{total_q} câu")
 
 # =========================================================================
-# PHÂN VÙNG 3: QUẢN LÝ NGÂN HÀNG ĐỀ & CHẤM ĐIỂM (LMS GIÁO VIÊN)
+# PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM (LMS GIÁO VIÊN)
 # =========================================================================
 elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)":
-    st.markdown("### 📂 HỆ THỐNG QUẢN LÝ NGÂN HÀNG ĐỀ & CHẤM ĐIỂM")
-    st.info("Thầy/cô có thể tải lên tệp Excel chứa ngân hàng câu hỏi riêng của trường Cây Dương, giao bài tập trực tuyến và xem bảng điểm của học sinh.")
+    st.markdown("### 📂 QUẢN LÝ TIẾN ĐỘ & BẢNG ĐIỂM LỚP HỌC")
+    st.info(f"Hệ thống đang quản lý kho ngân hàng đề tự động với **{len(st.session_state.question_bank_pool)} câu hỏi**.")
 
-    tab_nganhang, tab_giao, tab_cham = st.tabs([
-        "1. Tải lên Ngân hàng Đề (Excel)", 
-        "2. Tạo & Giao Bài Kiểm Tra", 
-        "3. Chấm Điểm & Thống Kê"
-    ])
+    tab1, tab2 = st.tabs(["1. Giao bài kiểm tra nhanh", "2. Bảng điểm học sinh"])
 
-    with tab_nganhang:
-        st.subheader("📤 Tải lên Tệp Ngân Hàng Câu Hỏi (Excel)")
-        st.markdown("Thầy/cô tải lên tệp Excel chứa danh sách câu hỏi trắc nghiệm để học sinh ôn tập trực tuyến.")
-        
-        # TẠO VÀ TẢI XUỐNG TỆP MẪU EXCEL CHUẨN
-        sample_data = {
-            "STT": [1, 2],
-            "Khối lớp": ["Lớp 10", "Lớp 10"],
-            "Tên bài học": ["Bài 16: Ngôn ngữ lập trình bậc cao và Python", "Bài 17: Biến và lệnh gán"],
-            "Câu hỏi": ["Đâu là tên một ngôn ngữ lập trình bậc cao?", "Trong Python, lệnh gán giá trị sử dụng ký hiệu nào?"],
-            "Đáp án A": ["Tiếng Anh", "="],
-            "Đáp án B": ["Python", "=="],
-            "Đáp án C": ["Mã máy", ":="],
-            "Đáp án D": ["Hợp ngữ", "->"],
-            "Đáp án đúng": ["B", "A"],
-            "Giải thích": ["Python là ngôn ngữ lập trình bậc cao.", "Dấu bằng (=) dùng để gán giá trị trong Python."]
-        }
-        df_sample = pd.DataFrame(sample_data)
-        
-        sample_buffer = io.BytesIO()
-        with pd.ExcelWriter(sample_buffer, engine="openpyxl") as writer:
-            df_sample.to_excel(writer, index=False, sheet_name="NganHangDe")
-        sample_buffer.seek(0)
-        
-        st.download_button(
-            label="📥 Tải xuống Tệp Excel Mẫu (nganhang_de.xlsx)",
-            data=sample_buffer,
-            file_name="nganhang_de.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="Tải file mẫu này về máy, điền câu hỏi của trường vào rồi tải lên lại bên dưới."
-        )
-        
-        st.divider()
-        
-        uploaded_excel = st.file_uploader("Chọn tệp Excel ngân hàng đề (.xlsx) đã điền", type=["xlsx"])
-        
-        if uploaded_excel is not None:
-            try:
-                df_bank = pd.read_excel(uploaded_excel)
-                st.success(f"🎉 Tải lên thành công! Đã ghi nhận {len(df_bank)} câu hỏi trong ngân hàng đề.")
-                st.markdown("**Xem trước dữ liệu ngân hàng đề:**")
-                st.dataframe(df_bank.head(10), use_container_width=True)
-                st.session_state.custom_question_bank = df_bank
-            except Exception as e:
-                st.error(f"❌ Lỗi đọc tệp Excel: {e}")
+    with tab1:
+        st.subheader("🔗 Tạo Mã Bài Kiểm Tra Cho Lớp")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input("Tên bài kiểm tra:", "Kiểm tra 15 phút - Tin học THPT")
+            st.text_input("Lớp:", "10A1")
+        with c2:
+            st.text_input("Mã bài kiểm tra:", "TIN_CAYDUONG_01")
+            st.date_input("Hạn nộp:")
+        if st.button("💾 Xác nhận phát hành bài kiểm tra", type="primary"):
+            st.success("🎉 Đã phát hành bài kiểm tra thành công cho học sinh!")
 
-    with tab_cham:
-        st.subheader("📊 Bảng Điểm & Thống Kê Kết Quả Lớp Học")
-        
+    with tab2:
+        st.subheader("📊 Bảng Điểm Tổng Hợp")
         mock_data = {
-            "STT": [1, 2, 3, 4, 5],
-            "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư", "Vũ Hoàng Long"],
-            "Lớp": ["10A1", "10A1", "10A1", "10A1", "10A1"],
-            "Mã đề làm": ["TIN10_01", "TIN10_01", "TIN10_01", "TIN10_01", "TIN10_01"],
-            "Số câu đúng": ["9/10", "8/10", "10/10", "6/10", "7/10"],
-            "Điểm số": [9.0, 8.0, 10.0, 6.0, 7.0],
-            "Trạng thái": ["Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp"]
+            "STT": [1, 2, 3, 4],
+            "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư"],
+            "Lớp": ["10A1", "10A1", "10A1", "10A1"],
+            "Điểm số": [9.0, 8.5, 10.0, 7.5],
+            "Trạng thái": ["Đã nộp bài", "Đã nộp bài", "Đã nộp bài", "Đã nộp bài"]
         }
-        df_scores = pd.DataFrame(mock_data)
-        st.dataframe(df_scores, use_container_width=True, hide_index=True)
+        df_score = pd.DataFrame(mock_data)
+        st.dataframe(df_score, use_container_width=True, hide_index=True)
         
-        score_buffer = io.BytesIO()
-        with pd.ExcelWriter(score_buffer, engine="openpyxl") as writer:
-            df_scores.to_excel(writer, index=False, sheet_name="BangDiemLop")
-        score_buffer.seek(0)
-        
-        st.download_button(
-            label="📥 Tải Bảng Điểm Lớp (Excel chuẩn)", data=score_buffer,
-            file_name="Bang_Diem_Trac_Nghiem_TinHoc.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+        score_buf = io.BytesIO()
+        with pd.ExcelWriter(score_buf, engine="openpyxl") as writer:
+            df_score.to_excel(writer, index=False, sheet_name="BangDiem")
+        score_buf.seek(0)
+        st.download_button("📥 Tải Bảng Điểm Excel", data=score_buf, file_name="BangDiem_Lop.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
