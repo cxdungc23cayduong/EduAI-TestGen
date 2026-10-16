@@ -213,7 +213,7 @@ def generate_questions_from_ai(api_key: str, grade: str, matrix_json: str) -> Li
 
         q_text = re.sub(r"^Câu\s*\d+[\.\:\s]*", "", str(q.get("question", "")).strip(), flags=re.IGNORECASE)
         cleaned.append({
-            "lesson": q.get("lesson", ""),
+            "lesson": q.get("lesson", "Tổng hợp"),
             "level": q.get("level", "Nhận biết"),
             "question": q_text,
             "options": opts,
@@ -241,6 +241,7 @@ def generate_shuffled_versions(base_questions: List[Dict[str, Any]], num_version
                 "options": [f"{labels[i]}. {shuffled_opts[i]}" for i in range(4)],
                 "answer": ans_letter,
                 "explanation": q.get("explanation", ""),
+                "lesson": q.get("lesson", ""),
             })
         versions.append({"exam_code": exam_code, "questions": v_questions})
     return versions
@@ -420,11 +421,15 @@ if app_mode == MODE_1:
             st.warning("Vui lòng chọn ít nhất một bài học!")
         else:
             try:
-                with st.spinner("Gemini AI đang biên soạn và trộn mã đề (hệ thống tự động đồng bộ nếu gặp giới hạn lưu lượng)..."):
+                with st.spinner("Gemini AI đang biên soạn và trộn mã đề..."):
                     m_json = json.dumps(matrix_config, ensure_ascii=False)
                     base_qs = generate_questions_from_ai(api_key_input, selected_grade, m_json)
-                    st.session_state.exam_versions = generate_shuffled_versions(base_qs, int(num_versions))
+                    
+                    # Lưu kèm thông tin mã bài kiểm tra chung nếu giáo viên muốn
+                    shuffled_versions = generate_shuffled_versions(base_qs, int(num_versions))
+                    st.session_state.exam_versions = shuffled_versions
 
+                    # Cập nhật kho câu hỏi tổng
                     existing = {q["question"] for q in st.session_state.question_bank_pool}
                     added = 0
                     for q in base_qs:
@@ -433,7 +438,20 @@ if app_mode == MODE_1:
                             existing.add(q["question"])
                             added += 1
 
-                    msg = f"Đã tạo {num_versions} mã đề và thêm {added} câu hỏi vào Ngân hàng ôn tập!"
+                    # Tự động ghi nhận bộ đề vào danh sách bài kiểm tra LMS để học sinh có thể chọn làm đề thi
+                    for v in shuffled_versions:
+                        exam_code_full = f"DE_{selected_grade.replace(' ', '_')}_{v['exam_code']}"
+                        # Kiểm tra xem mã đề đã tồn tại chưa
+                        if not any(ex["Mã bài"] == exam_code_full for ex in st.session_state.published_exams):
+                            st.session_state.published_exams.append({
+                                "Mã bài": exam_code_full,
+                                "Tên bài": f"Đề kiểm tra Tin học {selected_grade} - Mã {v['exam_code']}",
+                                "Lớp": selected_grade,
+                                "Hạn nộp": "Không thời hạn",
+                                "Questions": v["questions"] # Lưu trực tiếp câu hỏi của đề này
+                            })
+
+                    msg = f"Đã tạo {num_versions} mã đề, thêm {added} câu hỏi vào kho và phát hành đề thi trực tuyến!"
                     st.success(msg)
             except Exception as e:
                 st.error(f"Lỗi kết nối Gemini AI: {e}")
@@ -444,7 +462,7 @@ if app_mode == MODE_1:
             label="📥 Tải BỘ ĐỀ & ĐÁP ÁN (File Word chuẩn)",
             data=docx_bytes,
             file_name=f"Bo_De_{selected_grade.replace(' ', '_')}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.document",
             type="primary",
         )
 
@@ -470,45 +488,86 @@ if app_mode == MODE_1:
 # PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH
 # =========================================================================
 elif app_mode == MODE_2:
-    st.markdown("### PHÒNG ÔN TẬP TRỰC TUYẾN TỪ KHO ĐỀ")
+    st.markdown("### PHÒNG ÔN TẬP TRỰC TUYẾN & LÀM BÀI KIỂM TRA")
     pool_size = len(st.session_state.question_bank_pool)
 
-    if pool_size == 0:
+    if pool_size == 0 and not st.session_state.published_exams:
         st.warning("Kho câu hỏi đang trống! Vui lòng vào mục 1 để sinh đề kiểm tra trước.")
     else:
-        st.success(f"Kho ôn tập hiện có {pool_size} câu hỏi.")
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         with c1:
             student_name = st.text_input("Họ và tên học sinh:", placeholder="Nguyễn Văn A")
         with c2:
             student_class = st.text_input("Lớp:", value="10A1")
-        with c3:
-            max_q = min(20, pool_size)
-            min_q = 1 if pool_size < 3 else 3
-            def_q = min(5, max_q)
-            if min_q == max_q:
-                num_to_quiz = max_q
+
+        st.divider()
+        # Lựa chọn hình thức ôn tập
+        practice_mode = st.radio(
+            "🎯 CHỌN HÌNH THỨC ÔN TẬP / LÀM BÀI:",
+            ["1. Ôn tập theo Từng bài học", "2. Làm bài theo Mã đề / Đề do Giáo viên ra"]
+        )
+
+        if practice_mode == "1. Ôn tập theo Từng bài học":
+            if pool_size == 0:
+                st.warning("Kho ngân hàng câu hỏi đang trống.")
             else:
-                num_to_quiz = st.slider("Số câu ôn tập:", min_value=min_q, max_value=max_q, value=def_q)
+                # Lấy danh sách tất cả các bài học có trong kho
+                all_lessons_in_pool = sorted(list(set(q.get("lesson", "Tổng hợp") for q in st.session_state.question_bank_pool)))
+                selected_practice_lessons = st.multiselect("Chọn bài học muốn ôn tập:", all_lessons_in_pool, default=all_lessons_in_pool)
 
-        if st.button("Bắt đầu làm bài trắc nghiệm", type="primary"):
-            sampled = random.sample(st.session_state.question_bank_pool, num_to_quiz)
-            quiz_items = []
-            labels = ["A", "B", "C", "D"]
-            for q in sampled:
-                c_text = q["options"][q["correct_index"]]
-                s_opts = random.sample(q["options"], 4)
-                c_letter = labels[s_opts.index(c_text)]
-                quiz_items.append({
-                    "question": q["question"],
-                    "formatted_options": [f"{labels[i]}. {s_opts[i]}" for i in range(4)],
-                    "answer": c_letter,
-                    "explanation": q.get("explanation", ""),
-                })
-            st.session_state.quiz_session = quiz_items
+                filtered_pool = [q for q in st.session_state.question_bank_pool if q.get("lesson", "Tổng hợp") in selected_practice_lessons]
 
-        if st.session_state.quiz_session:
+                if not filtered_pool:
+                    st.warning("Không có câu hỏi nào thuộc các bài học đã chọn.")
+                else:
+                    max_q = min(20, len(filtered_pool))
+                    num_to_quiz = st.slider("Chọn số câu hỏi ôn tập:", min_value=min(1, max_q), max_value=max_q, value=min(5, max_q))
+
+                    if st.button("🚀 Bắt đầu ôn tập theo bài học", type="primary"):
+                        sampled = random.sample(filtered_pool, num_to_quiz)
+                        quiz_items = []
+                        labels = ["A", "B", "C", "D"]
+                        for q in sampled:
+                            c_text = q["options"][q["correct_index"]]
+                            s_opts = random.sample(q["options"], 4)
+                            c_letter = labels[s_opts.index(c_text)]
+                            quiz_items.append({
+                                "question": q["question"],
+                                "formatted_options": [f"{labels[i]}. {s_opts[i]}" for i in range(4)],
+                                "answer": c_letter,
+                                "explanation": q.get("explanation", ""),
+                            })
+                        st.session_state.quiz_session = quiz_items
+                        st.session_state.current_exam_title = "Ôn tập theo chuyên đề bài học"
+
+        else: # Hình thức làm đề do GV ra
+            published = st.session_state.published_exams
+            if not published:
+                st.warning("Hiện chưa có đề kiểm tra nào được phát hành bởi giáo viên.")
+            else:
+                exam_options = {ex["Tên bài"] + f" (Mã: {ex['Mã bài']})": ex for ex in published}
+                chosen_exam_label = st.selectbox("Chọn đề kiểm tra:", list(exam_options.keys()))
+                chosen_exam = exam_options[chosen_exam_label]
+
+                if st.button("🚀 Bắt đầu làm bài kiểm tra", type="primary"):
+                    if "Questions" in chosen_exam and chosen_exam["Questions"]:
+                        quiz_items = []
+                        for q in chosen_exam["Questions"]:
+                            quiz_items.append({
+                                "question": q["question"],
+                                "formatted_options": q["options"],
+                                "answer": q["answer"],
+                                "explanation": q.get("explanation", ""),
+                            })
+                        st.session_state.quiz_session = quiz_items
+                        st.session_state.current_exam_title = chosen_exam["Tên bài"]
+                    else:
+                        st.error("Đề này không chứa dữ liệu câu hỏi trực tuyến.")
+
+        # Hiển thị form làm bài nếu đã khởi tạo quiz_session
+        if st.session_state.get("quiz_session"):
             st.markdown("---")
+            st.markdown(f"### Đang làm bài: {st.session_state.get('current_exam_title', 'Bài ôn tập')}")
             with st.form("student_quiz_form"):
                 user_answers = {}
                 for idx, q_item in enumerate(st.session_state.quiz_session, start=1):
@@ -522,38 +581,39 @@ elif app_mode == MODE_2:
                     )
                     user_answers[idx] = sel[0] if sel else "Chưa chọn"
                     st.write("")
-                submitted_quiz = st.form_submit_button("Nộp bài và chấm điểm", type="primary")
+                submitted_quiz = st.form_submit_button("📤 Nộp bài và chấm điểm", type="primary")
 
             if submitted_quiz:
                 score_cnt = 0
                 total_q = len(st.session_state.quiz_session)
-                st.markdown("### KẾT QUẢ ÔN TẬP")
+                st.markdown("### 📊 KẾT QUẢ LÀM BÀI")
                 for idx, q_item in enumerate(st.session_state.quiz_session, start=1):
                     u_ans = user_answers.get(idx, "Chưa chọn")
                     c_ans = q_item["answer"]
                     if u_ans == c_ans:
                         score_cnt += 1
-                        st.success(f"Câu {idx}: Đúng! (Em chọn {u_ans})")
+                        st.success(f"✅ Câu {idx}: Đúng! (Em chọn {u_ans})")
                     else:
-                        st.error(f"Câu {idx}: Sai. (Em chọn {u_ans} | Đáp án đúng: {c_ans})")
+                        st.error(f"❌ Câu {idx}: Sai. (Em chọn {u_ans} | Đáp án đúng: {c_ans})")
                     if q_item.get("explanation"):
-                        st.caption(f"Giải thích: {q_item['explanation']}")
+                        st.caption(f"💡 Giải thích: {q_item['explanation']}")
 
                 final_score = round((score_cnt / total_q) * 10, 1)
-                st.metric("Điểm tổng kết", f"{final_score} điểm", f"Đúng {score_cnt}/{total_q} câu")
+                st.metric(label="🌟 Điểm tổng kết", value=f"{final_score} điểm", delta=f"Đúng {score_cnt}/{total_q} câu")
                 if final_score >= 8.0:
                     st.balloons()
 
                 if student_name.strip():
+                    # Tránh lưu trùng lặp liên tục nếu bấm nộp nhiều lần
                     st.session_state.score_records.append({
                         "STT": len(st.session_state.score_records) + 1,
                         "Họ và tên": student_name.strip(),
                         "Lớp": student_class.strip() or "10A1",
-                        "Mã bài": "ON_TAP_AI",
+                        "Mã bài": st.session_state.get("current_exam_title", "Ôn tập"),
                         "Điểm số": final_score,
                         "Trạng thái": "Đã nộp bài",
                     })
-                    st.info("Đã lưu điểm vào hệ thống LMS!")
+                    st.success("🎉 Đã tự động lưu kết quả vào Bảng điểm LMS của giáo viên!")
 
 # =========================================================================
 # PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM
@@ -564,10 +624,18 @@ elif app_mode == MODE_3:
     num_scores = len(st.session_state.score_records)
     st.info(f"Ngân hàng đề: **{num_bank}** câu hỏi | Đã ghi nhận: **{num_scores}** lượt nộp bài.")
 
-    tab1, tab2 = st.tabs(["1. Giao bài kiểm tra nhanh", "2. Bảng điểm học sinh"])
+    tab1, tab2 = st.tabs(["1. Quản lý mã bài kiểm tra", "2. Bảng điểm học sinh"])
 
     with tab1:
-        st.subheader("Tạo Mã Bài Kiểm Tra Cho Lớp")
+        st.subheader("Danh Sách Đề Kiểm Tra Đã Phát Hành")
+        if st.session_state.published_exams:
+            df_exams = pd.DataFrame(st.session_state.published_exams)[["Mã bài", "Tên bài", "Lớp", "Hạn nộp"]]
+            st.dataframe(df_exams, use_container_width=True, hide_index=True)
+        else:
+            st.info("Chưa có đề kiểm tra nào được tạo tự động từ mục 1.")
+
+        st.divider()
+        st.subheader("Tạo Mã Bài Kiểm Tra Thủ Công")
         c1, c2 = st.columns(2)
         with c1:
             ex_title = st.text_input("Tên bài kiểm tra:", "Kiểm tra 15 phút - Tin học THPT")
@@ -576,20 +644,20 @@ elif app_mode == MODE_3:
             ex_code = st.text_input("Mã bài kiểm tra:", "TIN_CAYDUONG_01")
             ex_date = st.date_input("Hạn nộp:", value=date.today())
 
-        if st.button("Xác nhận phát hành bài kiểm tra", type="primary"):
-            st.session_state.published_exams.append({
-                "Mã bài": ex_code,
-                "Tên bài": ex_title,
-                "Lớp": ex_class,
-                "Hạn nộp": ex_date.strftime("%d/%m/%Y"),
-            })
-            st.success(f"Đã phát hành mã bài {ex_code} thành công!")
-
-        if st.session_state.published_exams:
-            st.dataframe(pd.DataFrame(st.session_state.published_exams), use_container_width=True, hide_index=True)
+        if st.button("💾 Xác nhận phát hành bài kiểm tra", type="primary"):
+            if not any(ex["Mã bài"] == ex_code for ex in st.session_state.published_exams):
+                st.session_state.published_exams.append({
+                    "Mã bài": ex_code,
+                    "Tên bài": ex_title,
+                    "Lớp": ex_class,
+                    "Hạn nộp": ex_date.strftime("%d/%m/%Y"),
+                })
+                st.success(f"🎉 Đã phát hành mã bài {ex_code} thành công!")
+            else:
+                st.warning("⚠️ Mã bài kiểm tra này đã tồn tại.")
 
     with tab2:
-        st.subheader("Bảng Điểm Tổng Hợp")
+        st.subheader("📊 Bảng Điểm Tổng Hợp Học Sinh")
         df_score = pd.DataFrame(st.session_state.score_records)
         st.dataframe(df_score, use_container_width=True, hide_index=True)
 
