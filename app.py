@@ -173,7 +173,8 @@ def generate_questions_from_ai(api_key: str, grade: str, matrix_json: str) -> Li
     ]
     prompt = "\n".join(prompt_parts)
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    # Đã cập nhật sang model chuẩn mới nhất theo yêu cầu của Google API
+    model = genai.GenerativeModel("gemini-3.8-flash")
     response = model.generate_content(
         prompt,
         generation_config={"temperature": 0.3, "response_mime_type": "application/json"},
