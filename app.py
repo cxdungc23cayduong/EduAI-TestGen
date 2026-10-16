@@ -8,12 +8,19 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# --- 1. CẤU HÌNH GIAO DIỆN TRANG WEB ---
+# --- 1. CẤU HÌNH GIAO DIỆN TỐC ĐỘ CAO ---
 st.set_page_config(
     page_title="EduAI-TestGen & LMS - Hệ Thống Khảo Thí & Ôn Tập AI",
     page_icon="🤖",
     layout="wide",
 )
+
+# Tối ưu render giao diện
+st.markdown("""
+    <style>
+        .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- 2. DỮ LIỆU CHUẨN SÁCH GIÁO KHOA "KẾT NỐI TRI THỨC" TIN HỌC THPT ---
 CURRICULUM_DATA = {
@@ -57,44 +64,20 @@ if "generated_test" not in st.session_state:
 if "question_bank_pool" not in st.session_state:
     st.session_state.question_bank_pool = []
 
-# --- 4. HÀM AN TOÀN GỌI GEMINI AI (TỰ ĐỘNG CHỌN MODEL KHẢ DỤNG) ---
-def get_gemini_response(api_key, prompt_text):
+# --- 4. HÀM TỐC ĐỘ CAO GỌI GEMINI AI ---
+@st.cache_data(show_spinner=False)
+def cached_gemini_generation(api_key, prompt_text):
+    """Hàm cache kết quả AI giúp không phải gọi lại nếu trùng prompt, tăng tốc độ tối đa"""
     genai.configure(api_key=api_key)
-    
-    # Danh sách các model ưu tiên thử nghiệm để tránh lỗi 404
-    model_candidates = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
-        "gemini-pro"
-    ]
-    
-    last_error = None
-    for m_name in model_candidates:
-        try:
-            model = genai.GenerativeModel(m_name)
-            response = model.generate_content(prompt_text)
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            last_error = e
-            continue
-            
-    # Nếu các model trên không được, thử lấy danh sách model thực tế từ API
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                try:
-                    model = genai.GenerativeModel(m.name)
-                    response = model.generate_content(prompt_text)
-                    if response and response.text:
-                        return response.text
-                except:
-                    continue
-    except Exception as e:
-        last_error = e
-
-    raise Exception(f"Không tìm thấy model phù hợp hoặc lỗi kết nối API: {last_error}")
+    # Sử dụng model nhanh và ổn định nhất
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        prompt_text,
+        generation_config={"temperature": 0.3} # Giảm độ ngẫu nhiên giúp sinh nội dung nhanh hơn
+    )
+    if response and response.text:
+        return response.text
+    raise Exception("Không nhận được phản hồi từ AI.")
 
 # --- 5. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
@@ -220,26 +203,25 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
             st.warning("Vui lòng chọn ít nhất một bài học!")
         else:
             try:
-                with st.spinner("Gemini AI đang phân tích ma trận, sinh đề và cập nhật vào Ngân hàng ôn tập..."):
+                with st.spinner("Gemini AI đang tổng hợp và tối ưu hóa nội dung đề kiểm tra..."):
                     matrix_str = ""
                     for config in matrix_config:
                         matrix_str += f"- Chủ đề: {config['topic']} | Bài học: {config['lesson']}\n"
                         matrix_str += f"  + Nhận biết: {config['nb']} câu | Thông hiểu: {config['th']} câu | Vận dụng: {config['vd']} câu | Vận dụng cao: {config['vdc']} câu.\n"
 
                     prompt = (
-                        "Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT theo Chương trình GDPT 2018 (sách Kết nối tri thức).\n"
-                        f"Hãy biên soạn một đề kiểm tra định kỳ môn Tin học cho {selected_grade}.\n\n"
-                        "YÊU CẦU MA TRẬN BẮT BUỘC:\n"
+                        "Bạn là chuyên gia khảo thí Tin học THPT (chương trình GDPT 2018, sách Kết nối tri thức).\n"
+                        f"Hãy biên soạn đề kiểm tra môn Tin học {selected_grade} chuẩn xác, súc tích.\n\n"
+                        "YÊU CẦU MA TRẬN:\n"
                         f"{matrix_str}\n"
                         "CHỈ DẪN:\n"
-                        f"1. Số lượng mã đề: {num_versions} mã đề. Hoán vị câu hỏi và phương án A,B,C,D cho các mã đề tiếp theo.\n"
-                        "2. Câu hỏi Trắc nghiệm 4 phương án A,B,C,D, chỉ 1 đáp án đúng. Tuyệt đối không dùng 'Tất cả các đáp án trên'.\n"
-                        "3. Bắt đầu mỗi mã đề bằng: '### MÃ ĐỀ <số>' (VD: ### MÃ ĐỀ 101).\n"
-                        "4. Bắt đầu phần đáp án bằng: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM' ở cuối văn bản kèm bảng tổng hợp.\n"
+                        f"1. Số lượng mã đề: {num_versions} mã đề. Hoán vị câu hỏi và phương án A,B,C,D.\n"
+                        "2. Trắc nghiệm 4 phương án A,B,C,D, duy nhất 1 đáp án đúng.\n"
+                        "3. Bắt đầu mỗi mã đề bằng: '### MÃ ĐỀ <số>'.\n"
+                        "4. Bắt đầu phần đáp án bằng: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM' ở cuối.\n"
                     )
                     
-                    # Sử dụng hàm thông minh gọi API
-                    full_text = get_gemini_response(api_key_input, prompt)
+                    full_text = cached_gemini_generation(api_key_input, prompt)
                     st.session_state.generated_test = full_text
 
                     extracted_questions = []
@@ -263,7 +245,7 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
 
                     if extracted_questions:
                         st.session_state.question_bank_pool.extend(extracted_questions)
-                        st.success(f"Đã sinh đề thành công và tự động thêm {len(extracted_questions)} câu hỏi vào Ngân hàng ôn tập cho học sinh!")
+                        st.success(f"Đã sinh đề thành công và tự động thêm {len(extracted_questions)} câu hỏi vào Ngân hàng ôn tập!")
                     else:
                         st.success("Đã sinh đề thành công!")
             except Exception as e:
