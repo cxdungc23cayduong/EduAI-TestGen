@@ -1,4 +1,5 @@
 import io
+import random
 import google.generativeai as genai
 import streamlit as st
 import pandas as pd
@@ -8,18 +9,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # --- 1. CẤU HÌNH GIAO DIỆN TRANG WEB ---
 st.set_page_config(
-    page_title="EduAI-TestGen - Hệ Thống Sinh Đề Tổng Hợp",
+    page_title="EduAI-TestGen & LMS - Hệ Thống Khảo Thí & Ôn Tập AI",
     page_icon="🤖",
     layout="wide",
 )
-
-st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG")
-st.title("🤖 EduAI-TestGen: Hệ Thống Sinh Đề Kiểm Tra & Trộn Đề")
-st.markdown(
-    "Ứng dụng hỗ trợ giáo viên Tin học xây dựng ma trận, tạo đề kiểm tra tổng hợp "
-    "và tự động hoán vị mã đề bám sát Chương trình GDPT 2018 (Sách Kết nối tri thức)."
-)
-st.divider()
 
 # --- 2. DỮ LIỆU CHUẨN SÁCH GIÁO KHOA "KẾT NỐI TRI THỨC" TIN HỌC THPT ---
 CURRICULUM_DATA = {
@@ -164,383 +157,410 @@ CURRICULUM_DATA = {
     }
 }
 
-# --- 3. THANH BÊN (SIDEBAR): CẤU HÌNH API & MA TRẬN ĐA BÀI HỌC ---
-st.sidebar.markdown("### 👨‍🏫 GIÁO VIÊN: CAO XUÂN ĐÚNG")
-st.sidebar.header("⚙️ Cấu hình hệ thống & AI")
+# --- 3. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
+st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
+st.title("🤖 EduAI-TestGen: Hệ Thống Khảo Thí & Ôn Tập Thông Minh")
 
-api_key_input = st.sidebar.text_input(
-    "Nhập Google Gemini API Key của thầy/cô",
-    type="password",
-    help="Dán mã API Key lấy từ Google AI Studio vào đây",
+# Tạo Menu chuyển đổi các phân vùng chức năng
+app_mode = st.selectbox(
+    "🎯 CHỌN CHỨC NĂNG HỆ THỐNG:",
+    [
+        "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)",
+        "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)",
+        "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)"
+    ]
 )
+st.divider()
 
-st.sidebar.divider()
-st.sidebar.header("📚 Xây dựng ma trận đề kiểm tra")
+# =========================================================================
+# PHÂN VÙNG 1: KHẢO THÍ & RA ĐỀ (CODE GỐC CỦA THẦY)
+# =========================================================================
+if app_mode == "📊 1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
+    st.sidebar.markdown("### 👨‍🏫 QUẢN LÝ KHẢO THÍ")
+    api_key_input = st.sidebar.text_input("Nhập Google Gemini API Key", type="password")
 
-# Chọn khối lớp
-selected_grade = st.sidebar.selectbox("Chọn khối lớp", list(CURRICULUM_DATA.keys()))
+    st.sidebar.divider()
+    st.sidebar.header("📚 Xây dựng ma trận đề")
+    selected_grade = st.sidebar.selectbox("Chọn khối lớp", list(CURRICULUM_DATA.keys()))
 
-# Tạo danh sách tất cả các bài học
-all_lessons_in_grade = []
-for topic, lessons in CURRICULUM_DATA[selected_grade].items():
-    for lesson in lessons:
-        all_lessons_in_grade.append(f"{topic} | {lesson}")
+    all_lessons_in_grade = []
+    for topic, lessons in CURRICULUM_DATA[selected_grade].items():
+        for lesson in lessons:
+            all_lessons_in_grade.append(f"{topic} | {lesson}")
 
-selected_lessons = st.sidebar.multiselect(
-    "Chọn các bài học đưa vào đề thi",
-    all_lessons_in_grade,
-    help="Có thể chọn 1 bài hoặc nhiều bài để tạo đề tổng hợp."
-)
+    selected_lessons = st.sidebar.multiselect("Chọn các bài học đưa vào đề thi", all_lessons_in_grade)
+    num_versions = st.sidebar.number_input("Số lượng mã đề cần tạo", min_value=1, max_value=10, value=1)
 
-# Cấu hình trộn mã đề
-st.sidebar.divider()
-st.sidebar.header("🔀 Cấu hình Trộn đề")
-num_versions = st.sidebar.number_input("Số lượng mã đề cần tạo", min_value=1, max_value=10, value=1)
-st.sidebar.caption("Hệ thống sẽ tự động hoán vị câu hỏi và phương án A, B, C, D để tạo ra nhiều mã đề.")
+    st.sidebar.divider()
+    st.sidebar.header("📊 Bảng Ma Trận Đề Kiểm Tra")
+    col_ai_btn, col_reset = st.sidebar.columns([3, 1])
+    with col_ai_btn:
+        ai_auto_matrix_btn = st.button("✨ AI gợi ý ma trận")
+    with col_reset:
+        if st.button("🔄 Đặt lại"):
+            st.session_state.matrix_df_state = None
+            st.rerun()
 
-# --- TÍCH HỢP AI SINH MA TRẬN VÀ BẢNG EXCEL (TỐI ƯU HÓA HIỆU NĂNG) ---
-st.sidebar.divider()
-st.sidebar.header("📊 Bảng Ma Trận Đề Kiểm Tra")
-
-col_ai_btn, col_reset = st.sidebar.columns([3, 1])
-with col_ai_btn:
-    ai_auto_matrix_btn = st.button("✨ AI gợi ý ma trận")
-with col_reset:
-    if st.button("🔄 Đặt lại"):
+    if "matrix_df_state" not in st.session_state:
         st.session_state.matrix_df_state = None
-        st.rerun()
 
-# Khởi tạo state lưu trữ ma trận nếu chưa có
-if "matrix_df_state" not in st.session_state:
-    st.session_state.matrix_df_state = None
-
-# Xử lý khi bấm nút "AI gợi ý ma trận"
-# Xử lý khi bấm nút gợi ý ma trận chuẩn (Thuật toán siêu tốc 0.01s chuẩn GDPT 2018)
-if ai_auto_matrix_btn:
-    if not selected_lessons:
-        st.sidebar.warning("⚠️ Vui lòng chọn ít nhất một bài học ở trên!")
-    else:
-        num_lessons = len(selected_lessons)
-        # Mục tiêu đề 20 câu: 8 NB (40%), 6 TH (30%), 4 VD (20%), 2 VDC (10%)
-        # Chia đều và rải đều cho các bài đã chọn
-        ai_data = []
-        for idx, item in enumerate(selected_lessons):
-            topic_name, lesson_name = item.split(" | ")
-            
-            # Phân bổ thông minh bám sát tỉ lệ khảo thí
-            nb = max(1, round(8 / num_lessons))
-            th = max(1, round(6 / num_lessons))
-            vd = 1 if (idx % 2 == 0 or num_lessons <= 4) else 0
-            vdc = 1 if (idx == num_lessons - 1) else 0
-            
-            ai_data.append({
-                "Chọn": True,
-                "Chủ đề": topic_name,
-                "Bài học": lesson_name,
-                "Nhận biết": nb,
-                "Thông hiểu": th,
-                "Vận dụng": vd,
-                "Vận dụng cao": vdc
-            })
-            
-        st.session_state.matrix_df_state = pd.DataFrame(ai_data)
-        st.sidebar.success("✨ Đã thiết lập ma trận chuẩn tức thì! Thầy có thể chỉnh sửa lại các ô bên dưới.")
-    if not api_key_input:
-        st.sidebar.error("⚠️ Vui lòng nhập API Key ở trên trước!")
-    elif not selected_lessons:
-        st.sidebar.warning("⚠️ Vui lòng chọn ít nhất một bài học ở trên!")
-    else:
-        with st.spinner("🤖 AI đang phân tích và tính toán ma trận phù hợp..."):
-            genai.configure(api_key=api_key_input)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            
-            # Sử dụng ngoặc đơn () nối chuỗi an toàn tuyệt đối
-            prompt_matrix_gen = (
-                "Bạn là chuyên gia khảo thí môn Tin học THPT. Dựa trên các bài học sau:\n"
-                f"{selected_lessons}\n"
-                "Hãy thiết lập ma trận đề kiểm tra tổng hợp bám sát GDPT 2018 (sách Kết nối tri thức).\n"
-                "Tổng số câu hỏi khoảng 20 câu.\n"
-                "Tỉ lệ nhận thức mục tiêu: ~40% Nhận biết, ~30% Thông hiểu, ~20% Vận dụng, ~10% Vận dụng cao.\n"
-                "YÊU CẦU: Trả về kết quả CHỈ gồm các dòng dữ liệu, phân tách bằng dấu gạch đứng (|):\n"
-                "Tên bài học | Số câu Nhận biết | Số câu Thông hiểu | Số câu Vận dụng | Số câu Vận dụng cao\n"
-                "Không viết thêm lời chào hay giải thích gì khác."
-            )
-            
-            try:
-                response = model.generate_content(prompt_matrix_gen)
-                lines = response.text.strip().split("\n")
-                ai_data = []
-                for item in selected_lessons:
-                    topic_name, lesson_name = item.split(" | ")
-                    nb, th, vd, vdc = 1, 1, 0, 0
-                    for line in lines:
-                        if lesson_name in line or lesson_name.split(":")[0] in line:
-                            parts = [p.strip() for p in line.split("|")]
-                            if len(parts) >= 5:
-                                try:
-                                    nb = int(parts[1])
-                                    th = int(parts[2])
-                                    vd = int(parts[3])
-                                    vdc = int(parts[4])
-                                except:
-                                    pass
-                    ai_data.append({
-                        "Chọn": True,
-                        "Chủ đề": topic_name,
-                        "Bài học": lesson_name,
-                        "Nhận biết": nb,
-                        "Thông hiểu": th,
-                        "Vận dụng": vd,
-                        "Vận dụng cao": vdc
-                    })
-                st.session_state.matrix_df_state = pd.DataFrame(ai_data)
-                st.sidebar.success("✨ AI đã thiết lập xong ma trận gợi ý!")
-            except Exception as e:
-                st.sidebar.error(f"Lỗi AI: {e}")
-
-# Tối ưu hóa cache khởi tạo bảng mặc định
-@st.cache_data
-def get_default_matrix(lessons):
-    data = []
-    for item in lessons:
-        topic_name, lesson_name = item.split(" | ")
-        data.append({
-            "Chọn": True,
-            "Chủ đề": topic_name,
-            "Bài học": lesson_name,
-            "Nhận biết": 1,
-            "Thông hiểu": 1,
-            "Vận dụng": 0,
-            "Vận dụng cao": 0
-        })
-    return pd.DataFrame(data)
-
-if st.session_state.matrix_df_state is None and selected_lessons:
-    st.session_state.matrix_df_state = get_default_matrix(selected_lessons)
-
-matrix_config = []
-total_questions = 0
-
-# Hiển thị bảng tính tương tác trực tiếp (Đã tối ưu hóa chống giật lag)
-if selected_lessons and st.session_state.matrix_df_state is not None:
-    st.sidebar.caption("💡 Thầy/cô có thể click đúp chuột vào ô số bên dưới để sửa:")
-    
-    edited_df = st.sidebar.data_editor(
-        st.session_state.matrix_df_state,
-        hide_index=True,
-        column_config={
-            "Chọn": st.column_config.CheckboxColumn("Chọn", width="small"),
-            "Chủ đề": st.column_config.TextColumn("Chủ đề", disabled=True),
-            "Bài học": st.column_config.TextColumn("Bài học", disabled=True),
-            "Nhận biết": st.column_config.NumberColumn("NB", min_value=0, max_value=20, step=1, width="small"),
-            "Thông hiểu": st.column_config.NumberColumn("TH", min_value=0, max_value=20, step=1, width="small"),
-            "Vận dụng": st.column_config.NumberColumn("VD", min_value=0, max_value=20, step=1, width="small"),
-            "Vận dụng cao": st.column_config.NumberColumn("VDC", min_value=0, max_value=20, step=1, width="small"),
-        },
-        key="matrix_editor_ai",
-        use_container_width=True
-    )
-    st.session_state.matrix_df_state = edited_df
-
-    # Xử lý tính toán tổng số câu hỏi bằng Pandas (Chạy siêu nhanh)
-    if not edited_df.empty:
-        df_selected = edited_df[edited_df["Chọn"] == True].copy()
-        cols_to_int = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
-        df_selected[cols_to_int] = df_selected[cols_to_int].fillna(0).astype(int)
-        df_selected["Tổng số câu"] = df_selected[cols_to_int].sum(axis=1)
-        total_questions = df_selected["Tổng số câu"].sum()
-        
-        for _, row in df_selected.iterrows():
-            if row["Tổng số câu"] > 0:
-                matrix_config.append({
-                    "topic": row["Chủ đề"],
-                    "lesson": row["Bài học"],
-                    "nb": row["Nhận biết"], "th": row["Thông hiểu"], 
-                    "vd": row["Vận dụng"], "vdc": row["Vận dụng cao"]
-                })
-
-    st.sidebar.success(f"**📊 Tổng số câu hỏi: {total_questions} câu**")
-
-    # TẠO FILE EXCEL VÀ NÚT TẢI VỀ
-    if not df_selected.empty:
-        excel_buffer = io.BytesIO()
-        
-        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-            df_export = df_selected.drop(columns=["Chọn"]).reset_index(drop=True)
-            df_export.index += 1
-            df_export.index.name = "STT"
-            
-            df_export.to_excel(writer, sheet_name="MaTranDeThi", startrow=5)
-            ws = writer.sheets["MaTranDeThi"]
-            
-            ws["A1"] = "TRƯỜNG THCS VÀ THPT CÂY DƯƠNG"
-            ws["A2"] = f"MA TRẬN ĐỀ KIỂM TRA ĐỊNH KỲ MÔN TIN HỌC {selected_grade.upper()}"
-            ws["A3"] = "GIÁO VIÊN BIÊN SOẠN: CAO XUÂN ĐÚNG"
-            ws["A4"] = f"Thời gian làm bài: 45 phút | Tổng số câu: {total_questions} câu"
-            
-            for col in ws.columns:
-                max_len = max(len(str(cell.value or '')) for cell in col)
-                col_letter = col[0].column_letter
-                ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
-
-        excel_buffer.seek(0)
-        
-        st.sidebar.download_button(
-            label="📊 Tải Ma trận (Excel chuẩn)",
-            data=excel_buffer,
-            file_name=f"Ma_Tran_De_Thi_TinHoc_{selected_grade.replace(' ', '_')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-# --- 4. KHU VỰC CHÍNH: GỌI GEMINI AI SINH ĐỀ ---
-st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
-
-if "generated_test" not in st.session_state:
-    st.session_state.generated_test = ""
-
-if st.button("🚀 Bắt đầu sinh đề kiểm tra", type="primary"):
-    if not api_key_input:
-        st.error("⚠️ Thầy/cô vui lòng nhập Google Gemini API Key ở thanh bên trái!")
-    elif not matrix_config:
-        st.warning("⚠️ Thầy/cô vui lòng chọn ít nhất một bài học để đưa vào đề thi!")
-    else:
-        try:
-            with st.spinner("🤖 Gemini AI đang phân tích ma trận và thực hiện hoán vị trộn đề..."):
-                genai.configure(api_key=api_key_input)
-                model = genai.GenerativeModel("gemini-3.8-flash")
-
-                matrix_str = ""
-                for config in matrix_config:
-                    matrix_str += f"- Chủ đề: {config['topic']} | Bài học: {config['lesson']}\n"
-                    matrix_str += f"  + Nhận biết: {config['nb']} câu | Thông hiểu: {config['th']} câu | Vận dụng: {config['vd']} câu | Vận dụng cao: {config['vdc']} câu.\n"
-
-                # Sử dụng ngoặc đơn () nối chuỗi an toàn tuyệt đối
-                prompt = (
-                    "Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT xuất sắc theo Chương trình GDPT 2018 (sách Kết nối tri thức).\n"
-                    f"Hãy biên soạn một đề kiểm tra định kỳ môn Tin học cho {selected_grade}.\n\n"
-                    "YÊU CẦU MA TRẬN BẮT BUỘC (TUÂN THỦ TUYỆT ĐỐI SỐ LƯỢNG NÀY):\n"
-                    f"{matrix_str}\n"
-                    "CHỈ DẪN BIÊN SOẠN VÀ TRỘN ĐỀ:\n"
-                    f"1. Số lượng mã đề yêu cầu: {num_versions} mã đề. Nếu > 1 mã đề: Hãy lấy Đề gốc (Mã 101) sau đó tự động HOÁN VỊ (đảo vị trí các câu hỏi và đảo các phương án A,B,C,D) để tạo ra các mã đề tiếp theo (Ví dụ: Mã 102, 103...). Cung cấp đầy đủ nội dung toàn văn của từng mã đề.\n"
-                    "2. Câu hỏi Trắc nghiệm: Phải có 4 phương án A, B, C, D. Chỉ có duy nhất 1 đáp án đúng. Tuyệt đối KHÔNG lạm dụng phương án 'Tất cả các đáp án trên'.\n"
-                    "3. BẮT BUỘC: Phần nội dung đề thi của mỗi mã đề phải được bắt đầu bằng tiêu đề chuẩn xác: '### MÃ ĐỀ <số>' (Ví dụ: ### MÃ ĐỀ 101).\n"
-                    "4. TUYỆT ĐỐI KHÔNG ghi chú, hiển thị tên chủ đề hay tên bài học vào trong phần câu hỏi của đề thi dành cho học sinh.\n"
-                    "5. BẮT BUỘC: Phần Đáp án phải được đặt ở vị trí cuối cùng của toàn bộ văn bản và bắt đầu bằng tiêu đề chuẩn xác: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM'.\n"
-                    "6. Trong phần Đáp án, hãy lập Bảng đáp án trắc nghiệm tổng hợp so sánh cho tất cả các mã đề.\n\n"
-                    "Trình bày kết quả chuyên nghiệp bằng định dạng Markdown."
-                )
-
-                # Gọi API với chế độ STREAM (Trực tiếp)
-                response = model.generate_content(prompt, stream=True)
-
-                def stream_parser():
-                    for chunk in response:
-                        if chunk.text:
-                            yield chunk.text
-
-                full_text = st.write_stream(stream_parser)
-                st.session_state.generated_test = full_text
-
-                st.success(f"🎉 Gemini AI đã sinh và trộn thành công {num_versions} mã đề kiểm tra!")
-
-        except Exception as e:
-            st.error(f"❌ Lỗi kết nối với Gemini AI: {e}")
-
-# --- 5. TẠO FILE WORD CHUẨN FORM GIÁO DỤC (TỰ ĐỘNG NGẮT TRANG) ---
-if st.session_state.generated_test:
-    st.markdown("---")
-    
-    doc = Document()
-    
-    # Thiết lập Font chữ mặc định
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Times New Roman'
-    font.size = Pt(12)
-
-    def add_exam_header(docx_obj, ma_de=""):
-        header_p = docx_obj.add_paragraph()
-        header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        run_truong = header_p.add_run("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG\n")
-        run_truong.bold = True
-        run_truong.font.size = Pt(13)
-
-        run_de = header_p.add_run(f"ĐỀ KIỂM TRA ĐỊNH KỲ - MÔN TIN HỌC {selected_grade.upper()}\n")
-        run_de.bold = True
-        run_de.font.size = Pt(14)
-
-        if ma_de:
-            run_ma = header_p.add_run(f"{ma_de}\n")
-            run_ma.bold = True
-            run_ma.font.size = Pt(13)
-
-        run_tg = header_p.add_run("Thời gian làm bài: 45 phút (Không kể thời gian phát đề)\n")
-        run_tg.italic = True
-        run_tg.font.size = Pt(12)
-
-        docx_obj.add_paragraph(
-            "Họ và tên thí sinh: ................................................................. Lớp: .....................")
-        docx_obj.add_paragraph(
-            "Số báo danh: ..........................................................................................................")
-        docx_obj.add_paragraph("_" * 60).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        docx_obj.add_paragraph()
-
-    first_page = True
-    for line in st.session_state.generated_test.split("\n"):
-        line = line.strip()
-        if not line:
-            doc.add_paragraph()
-            continue
-
-        if "MÃ ĐỀ" in line.upper() and line.startswith("#"):
-            if not first_page:
-                doc.add_page_break()
-            first_page = False
-
-            ma_de_text = line.replace("#", "").strip()
-            add_exam_header(doc, ma_de_text)
-            continue
-
-        if "ĐÁP ÁN" in line.upper() and line.startswith("#"):
-            if not first_page:
-                doc.add_page_break()
-            first_page = False
-
-            p = doc.add_heading(level=1)
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = p.add_run(line.replace("#", "").strip())
-            run.font.name = 'Times New Roman'
-            continue
-
-        if line.startswith("# "):
-            p = doc.add_heading(level=1)
-            run = p.add_run(line.replace("# ", ""))
-            run.font.name = 'Times New Roman'
-        elif line.startswith("## "):
-            p = doc.add_heading(level=2)
-            run = p.add_run(line.replace("## ", ""))
-            run.font.name = 'Times New Roman'
-        elif line.startswith("### "):
-            p = doc.add_heading(level=3)
-            run = p.add_run(line.replace("### ", ""))
-            run.font.name = 'Times New Roman'
+    if ai_auto_matrix_btn:
+        if not selected_lessons:
+            st.sidebar.warning("⚠️ Vui lòng chọn ít nhất một bài học!")
         else:
+            num_lessons = len(selected_lessons)
+            ai_data = []
+            for idx, item in enumerate(selected_lessons):
+                topic_name, lesson_name = item.split(" | ")
+                nb = max(1, round(8 / num_lessons))
+                th = max(1, round(6 / num_lessons))
+                vd = 1 if (idx % 2 == 0 or num_lessons <= 4) else 0
+                vdc = 1 if (idx == num_lessons - 1) else 0
+                ai_data.append({
+                    "Chọn": True, "Chủ đề": topic_name, "Bài học": lesson_name,
+                    "Nhận biết": nb, "Thông hiểu": th, "Vận dụng": vd, "Vận dụng cao": vdc
+                })
+            st.session_state.matrix_df_state = pd.DataFrame(ai_data)
+            st.sidebar.success("✨ Đã thiết lập ma trận chuẩn tức thì!")
+
+    @st.cache_data
+    def get_default_matrix(lessons):
+        data = []
+        for item in lessons:
+            topic_name, lesson_name = item.split(" | ")
+            data.append({
+                "Chọn": True, "Chủ đề": topic_name, "Bài học": lesson_name,
+                "Nhận biết": 1, "Thông hiểu": 1, "Vận dụng": 0, "Vận dụng cao": 0
+            })
+        return pd.DataFrame(data)
+
+    if st.session_state.matrix_df_state is None and selected_lessons:
+        st.session_state.matrix_df_state = get_default_matrix(selected_lessons)
+
+    matrix_config = []
+    total_questions = 0
+
+    if selected_lessons and st.session_state.matrix_df_state is not None:
+        st.sidebar.caption("💡 Click vào ô số để sửa ma trận:")
+        edited_df = st.sidebar.data_editor(
+            st.session_state.matrix_df_state, hide_index=True,
+            column_config={
+                "Chọn": st.column_config.CheckboxColumn("Chọn", width="small"),
+                "Chủ đề": st.column_config.TextColumn("Chủ đề", disabled=True),
+                "Bài học": st.column_config.TextColumn("Bài học", disabled=True),
+                "Nhận biết": st.column_config.NumberColumn("NB", min_value=0, max_value=20, step=1, width="small"),
+                "Thông hiểu": st.column_config.NumberColumn("TH", min_value=0, max_value=20, step=1, width="small"),
+                "Vận dụng": st.column_config.NumberColumn("VD", min_value=0, max_value=20, step=1, width="small"),
+                "Vận dụng cao": st.column_config.NumberColumn("VDC", min_value=0, max_value=20, step=1, width="small"),
+            },
+            key="matrix_editor_ai", use_container_width=True
+        )
+        st.session_state.matrix_df_state = edited_df
+
+        if not edited_df.empty:
+            df_selected = edited_df[edited_df["Chọn"] == True].copy()
+            cols_to_int = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
+            df_selected[cols_to_int] = df_selected[cols_to_int].fillna(0).astype(int)
+            df_selected["Tổng số câu"] = df_selected[cols_to_int].sum(axis=1)
+            total_questions = df_selected["Tổng số câu"].sum()
+            
+            for _, row in df_selected.iterrows():
+                if row["Tổng số câu"] > 0:
+                    matrix_config.append({
+                        "topic": row["Chủ đề"], "lesson": row["Bài học"],
+                        "nb": row["Nhận biết"], "th": row["Thông hiểu"], 
+                        "vd": row["Vận dụng"], "vdc": row["Vận dụng cao"]
+                    })
+
+        st.sidebar.success(f"**📊 Tổng số câu hỏi: {total_questions} câu**")
+
+        if not df_selected.empty:
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                df_export = df_selected.drop(columns=["Chọn"]).reset_index(drop=True)
+                df_export.index += 1
+                df_export.index.name = "STT"
+                df_export.to_excel(writer, sheet_name="MaTranDeThi", startrow=5)
+                ws = writer.sheets["MaTranDeThi"]
+                ws["A1"] = "TRƯỜNG THCS VÀ THPT CÂY DƯƠNG"
+                ws["A2"] = f"MA TRẬN ĐỀ KIỂM TRA ĐỊNH KỲ MÔN TIN HỌC {selected_grade.upper()}"
+                ws["A3"] = "GIÁO VIÊN BIÊN SOẠN: CAO XUÂN ĐÚNG"
+                ws["A4"] = f"Thời gian làm bài: 45 phút | Tổng số câu: {total_questions} câu"
+                
+                for col in ws.columns:
+                    max_len = max(len(str(cell.value or '')) for cell in col)
+                    col_letter = col[0].column_letter
+                    ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
+
+            excel_buffer.seek(0)
+            st.sidebar.download_button(
+                label="📊 Tải Ma trận (Excel chuẩn)", data=excel_buffer,
+                file_name=f"Ma_Tran_De_Thi_TinHoc_{selected_grade.replace(' ', '_')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
+    st.subheader(f"📋 Nội dung đề kiểm tra ({num_versions} Mã đề)")
+    if "generated_test" not in st.session_state:
+        st.session_state.generated_test = ""
+
+    if st.button("🚀 Bắt đầu sinh đề kiểm tra", type="primary"):
+        if not api_key_input:
+            st.error("⚠️ Vui lòng nhập Google Gemini API Key ở thanh bên trái!")
+        elif not matrix_config:
+            st.warning("⚠️ Vui lòng chọn ít nhất một bài học!")
+        else:
+            try:
+                with st.spinner("🤖 Gemini AI đang phân tích ma trận và thực hiện hoán vị trộn đề..."):
+                    genai.configure(api_key=api_key_input)
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+
+                    matrix_str = ""
+                    for config in matrix_config:
+                        matrix_str += f"- Chủ đề: {config['topic']} | Bài học: {config['lesson']}\n"
+                        matrix_str += f"  + Nhận biết: {config['nb']} câu | Thông hiểu: {config['th']} câu | Vận dụng: {config['vd']} câu | Vận dụng cao: {config['vdc']} câu.\n"
+
+                    prompt = (
+                        "Bạn là một chuyên gia khảo thí và giáo viên Tin học THPT xuất sắc theo Chương trình GDPT 2018 (sách Kết nối tri thức).\n"
+                        f"Hãy biên soạn một đề kiểm tra định kỳ môn Tin học cho {selected_grade}.\n\n"
+                        "YÊU CẦU MA TRẬN BẮT BUỘC:\n"
+                        f"{matrix_str}\n"
+                        "CHỈ DẪN:\n"
+                        f"1. Số lượng mã đề: {num_versions} mã đề. Hoán vị câu hỏi và phương án A,B,C,D cho các mã đề tiếp theo.\n"
+                        "2. Câu hỏi Trắc nghiệm 4 phương án A,B,C,D, chỉ 1 đáp án đúng. Tuyệt đối không dùng 'Tất cả các đáp án trên'.\n"
+                        "3. Bắt đầu mỗi mã đề bằng: '### MÃ ĐỀ <số>' (VD: ### MÃ ĐỀ 101).\n"
+                        "4. Bắt đầu phần đáp án bằng: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM' ở cuối văn bản kèm bảng tổng hợp.\n"
+                    )
+                    response = model.generate_content(prompt, stream=True)
+                    def stream_parser():
+                        for chunk in response:
+                            if chunk.text: yield chunk.text
+                    full_text = st.write_stream(stream_parser)
+                    st.session_state.generated_test = full_text
+                    st.success("🎉 Sinh và trộn đề thành công!")
+            except Exception as e:
+                st.error(f"❌ Lỗi kết nối Gemini AI: {e}")
+
+    if st.session_state.generated_test:
+        st.markdown("---")
+        doc = Document()
+        style = doc.styles['Normal']
+        style.font.name = 'Times New Roman'
+        style.font.size = Pt(12)
+
+        def add_exam_header(docx_obj, ma_de=""):
+            hp = docx_obj.add_paragraph()
+            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            hp.add_run("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG\n").bold = True
+            hp.add_run(f"ĐỀ KIỂM TRA ĐỊNH KỲ - MÔN TIN HỌC {selected_grade.upper()}\n").bold = True
+            if ma_de: hp.add_run(f"{ma_de}\n").bold = True
+            hp.add_run("Thời gian làm bài: 45 phút\n").italic = True
+            docx_obj.add_paragraph("Họ và tên thí sinh: ................................................. Lớp: .....................")
+            docx_obj.add_paragraph("_" * 60).alignment = WD_ALIGN_PARAGRAPH.CENTER
+            docx_obj.add_paragraph()
+
+        first_page = True
+        for line in st.session_state.generated_test.split("\n"):
+            line = line.strip()
+            if not line:
+                doc.add_paragraph()
+                continue
+            if "MÃ ĐỀ" in line.upper() and line.startswith("#"):
+                if not first_page: doc.add_page_break()
+                first_page = False
+                add_exam_header(doc, line.replace("#", "").strip())
+                continue
+            if "ĐÁP ÁN" in line.upper() and line.startswith("#"):
+                if not first_page: doc.add_page_break()
+                first_page = False
+                p = doc.add_heading(level=1)
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.add_run(line.replace("#", "").strip())
+                continue
+            
             p = doc.add_paragraph()
             parts = line.split("**")
             for i, part in enumerate(parts):
                 run = p.add_run(part)
-                run.font.name = 'Times New Roman'
-                if i % 2 != 0:
-                    run.bold = True
+                if i % 2 != 0: run.bold = True
 
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        st.download_button(
+            label="📥 Tải BỘ ĐỀ (Word) bản in chuẩn", data=buffer,
+            file_name=f"Bo_De_Kiem_Tra_{selected_grade.replace(' ', '_')}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
 
-    st.download_button(
-        label="📥 Tải BỘ ĐỀ (Word) bản in chuẩn (Có tự động ngắt trang)",
-        data=buffer,
-        file_name=f"Bo_De_Kiem_Tra_Tron_Ma_{selected_grade.replace(' ', '_')}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
+# =========================================================================
+# PHÂN VÙNG 2: GÓC ÔN TẬP THÔNG MINH (DÀNH CHO HỌC SINH TỰ ÔN)
+# =========================================================================
+elif app_mode == "🤖 2. Góc Ôn Tập Thông Minh (Dành cho Học sinh tự ôn)":
+    st.markdown("### 🎓 PHÒNG HỌC & ÔN TẬP TRỰC TUYẾN MÔN TIN HỌC")
+    st.info("Học sinh chọn khối lớp và bài học muốn ôn tập. AI sẽ tự động tạo một bộ đề trắc nghiệm tương tác giúp học sinh kiểm tra kiến thức tức thì!")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        hs_grade = st.selectbox("Chọn khối lớp của em", list(CURRICULUM_DATA.keys()), key="hs_grade")
+    with col2:
+        # Lấy danh sách bài học phẳng
+        all_lessons_flat = []
+        for top, less in CURRICULUM_DATA[hs_grade].items():
+            for l in less:
+                all_lessons_flat.append(l)
+        hs_lesson = st.selectbox("Chọn bài học cần ôn tập", all_lessons_flat, key="hs_lesson")
+
+    hs_api_key = st.text_input("Nhập mã Gemini API Key được cung cấp bởi giáo viên:", type="password", key="hs_api")
+    num_practice_q = st.slider("Số lượng câu hỏi ôn tập:", min_value=5, max_value=20, value=5, step=5)
+
+    if "practice_quiz" not in st.session_state:
+        st.session_state.practice_quiz = None
+    if "user_answers" not in st.session_state:
+        st.session_state.user_answers = {}
+
+    if st.button("🎯 Bắt đầu làm bài ôn tập", type="primary"):
+        if not hs_api_key:
+            st.error("⚠️ Vui lòng nhập API Key để AI tạo đề ôn tập!")
+        else:
+            with st.spinner("🤖 AI đang biên soạn bộ câu hỏi ôn tập bám sát chương trình..."):
+                try:
+                    genai.configure(api_key=hs_api_key)
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    prompt_quiz = (
+                        f"Bạn là giáo viên Tin học. Hãy tạo {num_practice_q} câu hỏi trắc nghiệm khách quan về bài học: '{hs_lesson}' ({hs_grade}, sách Kết nối tri thức).\n"
+                        "Mỗi câu hỏi có 4 phương án A, B, C, D và chỉ có 1 đáp án đúng.\n"
+                        "Định dạng nghiêm ngặt bắt buộc cho mỗi câu:\n"
+                        "CÂU [Số]: [Nội dung câu hỏi]\n"
+                        "A. [Đáp án A]\n"
+                        "B. [Đáp án B]\n"
+                        "C. [Đáp án C]\n"
+                        "D. [Đáp án D]\n"
+                        "ĐÁP ÁN ĐÚNG: [A/B/C/D] - [Giải thích ngắn gọn vì sao đúng]\n"
+                    )
+                    res = model.generate_content(prompt_quiz)
+                    st.session_state.practice_quiz = res.text
+                    st.session_state.user_answers = {}
+                    st.success("🎉 Đã tạo xong đề ôn tập! Em hãy trả lời các câu hỏi bên dưới.")
+                except Exception as e:
+                    st.error(f"Lỗi tạo đề ôn tập: {e}")
+
+    # Hiển thị giao diện làm bài trắc nghiệm cho học sinh
+    if st.session_state.practice_quiz:
+        st.markdown("---")
+        st.subheader(f"📝 BÀI ÔN TẬP: {hs_lesson}")
+        
+        quiz_text = st.session_state.practice_quiz
+        questions = quiz_text.split("CÂU ")
+        
+        submitted = False
+        with st.form("quiz_form"):
+            for idx, q in enumerate(questions[1:], 1):
+                lines = [l.strip() for l in q.strip().split("\n") if l.strip()]
+                if len(lines) >= 5:
+                    q_title = lines[0]
+                    opts = lines[1:5] # A, B, C, D
+                    st.markdown(f"**Câu {idx}: {q_title}**")
+                    
+                    choice = st.radio(
+                        f"Chọn đáp án câu {idx}:", 
+                        options=["Chưa chọn", "A", "B", "C", "D"],
+                        key=f"q_{idx}",
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.user_answers[idx] = choice
+                    st.markdown("")
+
+            submitted = st.form_submit_button("📤 Nộp bài và xem kết quả", type="primary")
+
+        if submitted:
+            score = 0
+            total_valid = 0
+            st.markdown("### 📊 KẾT QUẢ ÔN TẬP CỦA EM")
+            
+            for idx, q in enumerate(questions[1:], 1):
+                lines = [l.strip() for l in q.strip().split("\n") if l.strip()]
+                correct_line = ""
+                for l in lines:
+                    if "ĐÁP ÁN ĐÚNG:" in l:
+                        correct_line = l
+                        break
+                
+                if correct_line:
+                    total_valid += 1
+                    correct_ans = correct_line.split("ĐÁP ÁN ĐÚNG:")[1].strip()[0] # Lấy ký tự A, B, C hoặc D
+                    user_ans = st.session_state.user_answers.get(idx, "Chưa chọn")
+                    
+                    if user_ans == correct_ans:
+                        score += 1
+                        st.success(f"✅ Câu {idx}: Đúng! (Em chọn {user_ans} | {correct_line})")
+                    else:
+                        st.error(f"❌ Câu {idx}: Sai. (Em chọn {user_ans} | Đáp án đúng: {correct_line})")
+
+            if total_valid > 0:
+                percent = (score / total_valid) * 10
+                st.balloons()
+                st.metric(label="🌟 Điểm số tổng kết của em (Thang điểm 10)", value=f"{percent:.1f} điểm", delta=f"Đúng {score}/{total_valid} câu")
+
+# =========================================================================
+# PHÂN VÙNG 3: QUẢN LÝ BÀI TẬP & CHẤM ĐIỂM (LMS GIÁO VIÊN)
+# =========================================================================
+elif app_mode == "📝 3. Quản Lý Bài Tập & Chấm Điểm (LMS Giáo viên)":
+    st.markdown("### 📂 HỆ THỐNG GIAO BÀI VÀ CHẤM ĐIỂM TỰ ĐỘNG")
+    st.info("Thầy/cô có thể tạo mã đề giao về cho lớp, nhập danh sách điểm hoặc xuất báo cáo thống kê kết quả học tập của học sinh.")
+
+    tab_giao, tab_cham = st.tabs(["1. Tạo & Giao Bài Kiểm Tra", "2. Chấm Điểm & Thống Kê Lớp Học"])
+
+    with tab_giao:
+        st.subheader("🔗 Tạo Mã Bài Kiểm Tra Trực Tuyến")
+        
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            exam_title = st.text_input("Tiêu đề bài kiểm tra:", "Kiểm tra 15 phút - Môn Tin học 10")
+            class_name = st.text_input("Lớp được giao:", "10A1")
+        with col_g2:
+            exam_code = st.text_input("Mã bài kiểm tra (Mật khẩu truy cập):", "TIN10_01")
+            deadline = st.date_input("Hạn nộp bài:")
+
+        st.markdown("---")
+        st.subheader("📋 Nhập danh sách câu hỏi trắc nghiệm (Dạng văn bản hoặc tự sinh từ AI ở Mục 1):")
+        exam_content_input = st.text_area(
+            "Dán nội dung câu hỏi và đáp án vào đây:",
+            placeholder="CÂU 1: Thông tin là gì?\nA. Dữ liệu\nB. Hiểu biết...\nĐÁP ÁN ĐÚNG: A"
+        )
+
+        if st.button("💾 Lưu và Xuất Link Giao Bài Cho Học Sinh", type="primary"):
+            if not exam_code or not exam_content_input:
+                st.warning("⚠️ Vui lòng nhập mã bài kiểm tra và nội dung câu hỏi!")
+            else:
+                st.success(f"🎉 Đã tạo thành công bài kiểm tra [Mã: **{exam_code}**] cho lớp **{class_name}**!")
+                st.markdown(f"👉 **Đường dẫn giao cho học sinh:** Gửi học sinh truy cập vào mục *'2. Góc Ôn Tập Thông Minh'* và nhập mã đề **{exam_code}** để làm bài.")
+
+    with tab_cham:
+        st.subheader("📊 Bảng Điểm & Thống Kê Kết Quả Lớp Học")
+        
+        # Tạo bảng dữ liệu mẫu mô phỏng danh sách lớp học sinh nộp bài
+        mock_data = {
+            "STT": [1, 2, 3, 4, 5],
+            "Họ và tên": ["Nguyễn Văn An", "Trần Thị Bình", "Lê Hoàng Nam", "Phạm Minh Thư", "Vũ Hoàng Long"],
+            "Lớp": ["10A1", "10A1", "10A1", "10A1", "10A1"],
+            "Mã đề làm": ["TIN10_01", "TIN10_01", "TIN10_01", "TIN10_01", "TIN10_01"],
+            "Số câu đúng": ["9/10", "8/10", "10/10", "6/10", "7/10"],
+            "Điểm số": [9.0, 8.0, 10.0, 6.0, 7.0],
+            "Trạng thái": ["Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp", "Đã nộp"]
+        }
+        df_scores = pd.DataFrame(mock_data)
+        
+        st.dataframe(df_scores, use_container_width=True, hide_index=True)
+        
+        # Nút xuất Excel bảng điểm
+        score_buffer = io.BytesIO()
+        with pd.ExcelWriter(score_buffer, engine="openpyxl") as writer:
+            df_scores.to_excel(writer, index=False, sheet_name="BangDiemLop")
+        score_buffer.seek(0)
+        
+        st.download_button(
+            label="📥 Tải Bảng Điểm Lớp (Excel chuẩn)",
+            data=score_buffer,
+            file_name="Bang_Diem_Trac_Nghiem_TinHoc.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
