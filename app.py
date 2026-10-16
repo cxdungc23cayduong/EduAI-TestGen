@@ -57,7 +57,46 @@ if "generated_test" not in st.session_state:
 if "question_bank_pool" not in st.session_state:
     st.session_state.question_bank_pool = []
 
-# --- 4. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
+# --- 4. HÀM AN TOÀN GỌI GEMINI AI (TỰ ĐỘNG CHỌN MODEL KHẢ DỤNG) ---
+def get_gemini_response(api_key, prompt_text):
+    genai.configure(api_key=api_key)
+    
+    # Danh sách các model ưu tiên thử nghiệm để tránh lỗi 404
+    model_candidates = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro",
+        "gemini-pro"
+    ]
+    
+    last_error = None
+    for m_name in model_candidates:
+        try:
+            model = genai.GenerativeModel(m_name)
+            response = model.generate_content(prompt_text)
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            last_error = e
+            continue
+            
+    # Nếu các model trên không được, thử lấy danh sách model thực tế từ API
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                try:
+                    model = genai.GenerativeModel(m.name)
+                    response = model.generate_content(prompt_text)
+                    if response and response.text:
+                        return response.text
+                except:
+                    continue
+    except Exception as e:
+        last_error = e
+
+    raise Exception(f"Không tìm thấy model phù hợp hoặc lỗi kết nối API: {last_error}")
+
+# --- 5. TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CHÍNH ---
 st.subheader("TRƯỜNG THCS VÀ THPT CÂY DƯƠNG | GIÁO VIÊN: CAO XUÂN ĐÚNG")
 st.title("EduAI-TestGen: Hệ Thống Khảo Thí & Ôn Tập Thông Minh")
 
@@ -182,23 +221,6 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
         else:
             try:
                 with st.spinner("Gemini AI đang phân tích ma trận, sinh đề và cập nhật vào Ngân hàng ôn tập..."):
-                    genai.configure(api_key=api_key_input)
-                    genai.configure(api_key=api_key_input)
-                    
-                    # Tự động dò tìm model khả dụng để tránh hoàn toàn lỗi 404
-                    model = None
-                    for m_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']:
-                        try:
-                            test_model = genai.GenerativeModel(m_name)
-                            # Kiểm tra nhanh kết nối
-                            model = test_model
-                            break
-                        except Exception:
-                            continue
-                    
-                    if model is None:
-                        model = genai.GenerativeModel('gemini-pro') # Dự phòng cuối cùng
-
                     matrix_str = ""
                     for config in matrix_config:
                         matrix_str += f"- Chủ đề: {config['topic']} | Bài học: {config['lesson']}\n"
@@ -215,8 +237,9 @@ if app_mode == "1. Khảo Thí & Ra Đề (Dành cho Giáo viên)":
                         "3. Bắt đầu mỗi mã đề bằng: '### MÃ ĐỀ <số>' (VD: ### MÃ ĐỀ 101).\n"
                         "4. Bắt đầu phần đáp án bằng: '### ĐÁP ÁN VÀ HƯỚNG DẪN CHẤM' ở cuối văn bản kèm bảng tổng hợp.\n"
                     )
-                    response = model.generate_content(prompt)
-                    full_text = response.text
+                    
+                    # Sử dụng hàm thông minh gọi API
+                    full_text = get_gemini_response(api_key_input, prompt)
                     st.session_state.generated_test = full_text
 
                     extracted_questions = []
